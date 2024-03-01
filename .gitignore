@@ -1,0 +1,12 @@
+*.txt
+venv
+env
+!README.txt
+for_testing_only.py
+for_testing_only_2.py
+learning_1.py
+test.ipynb
+*.vscode
+*.html
+Ignore_Folder
+*.vs
