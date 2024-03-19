@@ -43,10 +43,9 @@ def DFS(G, A, B):
     nodes_visited.append(A)
     temp_list = []
     for node in list(G.adj[A]):
-      if not(node in nodes_visited):
-        temp_list.append(node)
-    for item in temp_list:
-      stack.append(temp_list.pop())
+      if node not in nodes_visited:
+        stack.append(node)
+    
     
   print(nodes_visited)
   
