@@ -4,6 +4,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 g = nx.Graph()
+pos = nx.shell_layout(g)
 
 node_visited = []
 success_visit = []
@@ -55,3 +56,4 @@ def BestFirstSearch(start, goal):
             else:
                 current = success_visit.pop()
                 continue
+ 
