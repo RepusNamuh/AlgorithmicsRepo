@@ -4,11 +4,11 @@ def topologicalSort(G):
 # assumption: at least one source node in G
     if (G.number_of_nodes() > 0):
         SourceNodes = []
-    for N in list(G.nodes()):
-        if G.in_degree(N) == 0:
-            print('Source Node ', N)
-            SourceNodes.append(N)
-            TopoList.append(SourceNodes)
+        for N in list(G.nodes()):
+            if G.in_degree(N) == 0:
+                print('Source Node ', N)
+                SourceNodes.append(N)
+                TopoList.append(SourceNodes)
         for S in SourceNodes:
             G.remove_node(S)
         topologicalSort(G) # recur on graph
