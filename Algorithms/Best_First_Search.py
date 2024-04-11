@@ -3,15 +3,12 @@ import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 
-g = nx.Graph()
-pos = nx.shell_layout(g)
-
 node_visited = []
 success_visit = []
 
 # Closer coordinate mean closer to destination
 # Though in real life, this will not always work.
-def coordinate_compare(current, next, goal):
+def coordinate_compare(pos, current, next, goal):
     x1, y1 = pos[current]
     x2, y2 = pos[next]
     x3, y3 = pos[goal]
@@ -23,7 +20,7 @@ def coordinate_compare(current, next, goal):
         return next
 
 # Find the next node to visit closer to the goal
-def closest_node(current, goal, next = None):
+def closest_node(g, pos, current, goal, next = None):
     next = current
     if len(list(g.adj[current])) == 0: # Because of the graph construction
         return next, current
@@ -36,16 +33,16 @@ def closest_node(current, goal, next = None):
         if next == current: #Should not compare coordinate of current and node
             next = node
             continue
-        next = coordinate_compare(next, node, goal)
+        next = coordinate_compare(pos, next, node, goal)
            
     return next, current
 
 # Best First Search
-def BestFirstSearch(start, goal):
+def BestFirstSearch(Graph, pos, start, goal):
     current = start
     node_visited.append(current)
-    while current != goal:
-        current, previous = closest_node(current, goal) 
+    while True:
+        current, previous = closest_node(Graph, pos, current, goal) 
         if current != previous:
             node_visited.append(current)
             success_visit.append(previous)
@@ -56,4 +53,8 @@ def BestFirstSearch(start, goal):
             else:
                 current = success_visit.pop()
                 continue
+        if current == goal:
+            success_visit.append(current)
+            break
+    print(node_visited, success_visit)
  
