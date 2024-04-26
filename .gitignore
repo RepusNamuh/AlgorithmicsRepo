@@ -2,6 +2,7 @@
 venv
 env
 !README.txt
+testing*
 for_testing_only.py
 for_testing_only_2.py
 learning_1.py
