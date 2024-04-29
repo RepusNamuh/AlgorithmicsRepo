@@ -108,7 +108,7 @@ def move_tile(i, j, direction):
     row, col = direction[0], direction[1]
     array_board[i][j], array_board[i + row][col + j] = array_board[row + i][col + j], array_board[i][j]
     
-### Main function
+### Main functionp
 def main():
     i, j = empty_tiles(array_board)
     location[(i, j)] = 1
