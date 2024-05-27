@@ -3,9 +3,9 @@ from collections import defaultdict
 # Setting Up the Configuration
 original_config = [[None, None, None, None, None, None],
                    [None, None, None, None, None, None],
-                   [None, None, 0, None, None, None],
+                   [None, None, 1, None, 1, None],
                    [None, None, None, None, None, None],
-                   [None, None, None, 2, None, None],
+                   [None, None, 0, None, None, None],
                    [None, None, None, None, None, None]]
 # Finding Square that contain number
 setup_config = defaultdict(int)
@@ -29,6 +29,7 @@ None_square = []
 
 # Searching for all move that are not possible due to the number or coloured square
 def valid_affected_square(next):
+    """If the square is not available or exist, then it status won't change"""
     if next not in (coor_list): 
         return False
     return True
@@ -36,22 +37,19 @@ def valid_affected_square(next):
 def affected_squares_radius(coloured_square, permanent = False):
     """Calculate all affected square in the vicinity of the coloured square.
     Also search if the coloured square fullfill any number_square adj"""
-    try:
-        row, col = coloured_square
-        for i in [-1,0,1]:
-            for j in [-1,0,1]:
-                next = (row + i, col + j)
-                if i == j == 0:
-                    continue
-                if next in setup_config:
-                    number_affected_square(next)
-                if valid_affected_square(next):
-                    if permanent: # This is simply an extra in case there is a zero number square
-                        eliminated_coor.add(next)
-                    coor_list.remove(next)
+    row, col = coloured_square
+    for i in [-1,0,1]:
+        for j in [-1,0,1]:
+            if i == j == 0:
+                continue
+            next = (row + i, col + j)
+            if next in setup_config and not permanent:
+                number_affected_square(next)
+            if valid_affected_square(next):
+                if permanent: # This is simply an extra in case there is a zero number square
+                    eliminated_coor.add(next)
+                coor_list.remove(next)
     
-    except:
-        None
 
 def number_affected_square(number_square):
     """If the number of coloured square around the number reach maximum
@@ -71,27 +69,25 @@ def number_affected_square(number_square):
         
 def affected_row_col(coloured_square):
     """Eliminate all square in a row and col temporarily"""
-    if coloured_square:
-        row, col = coloured_square
-        for j in range(len(original_config)):
-            next = (row, j)
-            if valid_affected_square(next):
-                coor_list.remove(next) 
+    row, col = coloured_square
+    for j in range(len(original_config)):
+        next = (row, j)
+        if valid_affected_square(next):
+            coor_list.remove(next) 
 
-        for i in range(len(original_config[0])):
-            next = (i, col)
-            if valid_affected_square(next):
-                coor_list.remove(next)
-    else:
-        None
+    for i in range(len(original_config[0])):
+        next = (i, col)
+        if valid_affected_square(next):
+            coor_list.remove(next)
 
 def available_move(coloured_square):
-    """Producing a list of move that are available through converting list to set and back again"""
+    """Calculating the list of move after a square is coloured"""
     affected_squares_radius(coloured_square)
     affected_row_col(coloured_square)
 
 # Searching for square that contain number
 def layout_search():
+    "Initital Search for number_square location"
     for i, row in enumerate(original_config):
         for j, element in enumerate(row):
             if element != None:
@@ -133,13 +129,16 @@ def reverse(next):
     if max_recur==0:
         return "Stop"
     if not next or (count!= 6 and len(coor_list) ==0) and len(last) != 0:
-        next = last.pop()
-        coor_list = coor_list_version.pop()
+        try:
+            next = last.pop()
+            coor_list = coor_list_version.pop()
+            traverse.pop()
+        except:
+            return "Stop"
         if next != None:
             coor_list.update(coor_list, None_square)
             setup_config[next] +=1
             None_square = []
-        traverse.pop()
         count -= 1
     return next
 
@@ -149,10 +148,10 @@ def image(next, previous):
     temp = coor_list.copy()
     coor_list_version.append(temp) # List of coor before affected_square Calculation
     available_move(next) # List  of coor after affected_square Calculation
-    last.append(previous)
-    traverse.append(next)
+    last.append(previous), traverse.append(next)
     max_recur -=1
     print(max_recur, traverse)
+
 
 def main(previous_square):
     global count, max_recur
