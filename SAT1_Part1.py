@@ -2,22 +2,23 @@ from collections import defaultdict, Counter
 
 # Setting Up the Configuration
 original_config = [[None, None, None, None, None, None],
-                   [None, 0, None, None, None, None],
                    [None, None, None, None, None, None],
                    [None, None, None, None, None, None],
+                   [2, None, None, None, None, 1],
                    [None, None, None, None, None, None],
-                   [None, None, None, None, None, 0]]
+                   [None, 1, None, None, None, None]
+                   ]
 # Finding Square that contain number
 setup_config = defaultdict(int)
 # ADT to store movement that are no longer possible
 eliminated_coor = set()
-
+length = len(original_config)
 # Create a list of coordinate from the matrix of the configuration
-coor_list = set((i, j) for i in range(6) for j in range(6))
+coor_list = set((i, j) for i in range(length) for j in range(length))
 coor_list_version = list()
 
 # For recursion limit
-max_recur = 37
+max_recur = 500
 # For tracking total coloured node of 6x6
 count = 0
 # Tracking last parent square e.g a number node otherwise None
@@ -36,15 +37,12 @@ def valid_affected_square(next):
 
 def remove(cell, permanent = False):
     if valid_affected_square(cell):
-        if permanent: # This is simply an extra in case there is a zero number square
-            eliminated_coor.add(cell)
         original_config[cell[0]][cell[1]] = "affected"
         coor_list.remove(cell)
     # Cases where the cell have been coloured before but now are empty and affected by
     # other square
     if cell in None_square:
         original_config[cell[0]][cell[1]] = "affected"
-
 
 def affected_squares_radius(coloured_square, permanent = False): 
     """Calculate all affected square in the vicinity of the coloured square.
@@ -55,9 +53,9 @@ def affected_squares_radius(coloured_square, permanent = False):
             if i == j == 0:
                 continue
             next = (row + i, col + j)
-            if next in setup_config and not permanent:
+            if next in setup_config:
                 number_affected_square(next)
-            remove(next, permanent)
+            remove(next)
     
 def number_affected_square(number_square):
     """If the number of coloured square around the number reach maximum
@@ -103,7 +101,7 @@ def layout_search():
                 eliminated_coor.add((i, j))
                 coor_list.remove((i, j))
                 if element == 0:
-                    affected_squares_radius((i, j), True)
+                    affected_squares_radius((i, j))
 
 # Finding Moves.
 def number_check():
@@ -132,6 +130,7 @@ def next_move(number_square):
 
     return None
 
+# Checking if things need to be reverse
 def full_affected_check():
     """An optimisation search to quickly calculate if a previous move cause a 
     row or column to not be fullfill that is if move (i, j) in the previous movement cause
@@ -157,7 +156,7 @@ def reverse(next):
     global coor_list, coor_list_version, count, None_square
     if max_recur==0:
         return "Stop"
-    if (not next) or (count!= 6 and len(coor_list) ==0) or full_affected_check():
+    if (not next) or (count!= 7 and len(coor_list) ==0) or full_affected_check():
         count -= 2 if next else 1
         try:
             next ,coor_list = last.pop(), coor_list_version.pop()
@@ -172,6 +171,7 @@ def reverse(next):
             None_square = []
     return next
 
+# Creating an image
 def image(next, previous):
     """Creating a copy/image of the previous state of the solution"""
     coor_list.remove(next)
@@ -180,7 +180,7 @@ def image(next, previous):
     coor_list_version.append(temp) # List of coor before affected_square Calculation
     available_move(next) # List  of coor after affected_square Calculation
     last.append(previous), traverse.append(next)
-    print(max_recur, traverse)
+    print(max_recur, traverse, last)
 
 
 def main(previous_square):
@@ -196,7 +196,7 @@ def main(previous_square):
         if reverse_check == "Stop":
             print("Unsolvable")
         elif reverse_check != next or next == None:
-            print(max_recur, traverse)
+            print(max_recur, traverse, last)
             main(reverse_check)
         else:
             image(next, previous_square)
