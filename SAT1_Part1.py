@@ -6,7 +6,7 @@ original_config = [[None, None, None, None, None, None],
                    [None, None, None, None, None, None],
                    [2, None, None, None, None, 1],
                    [None, None, None, None, None, None],
-                   [None, 1, None, None, None, None]
+                   [None, None, 1, None, None, None]
                    ]
 # Finding Square that contain number
 setup_config = defaultdict(int)
@@ -180,7 +180,7 @@ def image(next, previous):
     coor_list_version.append(temp) # List of coor before affected_square Calculation
     available_move(next) # List  of coor after affected_square Calculation
     last.append(previous), traverse.append(next)
-    print(max_recur, traverse, last)
+    print(max_recur, traverse)
 
 
 def main(previous_square):
@@ -196,7 +196,7 @@ def main(previous_square):
         if reverse_check == "Stop":
             print("Unsolvable")
         elif reverse_check != next or next == None:
-            print(max_recur, traverse, last)
+            print(max_recur, traverse)
             main(reverse_check)
         else:
             image(next, previous_square)
