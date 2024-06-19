@@ -19,10 +19,10 @@ def FloydWarshall(G,directed):
     u = e[0]
     v = e[1]
     w = G[u][v]['weight']
-    dist[u-1][v-1] = w
+    dist[u][v] = w
     if (directed == False):
       # for undirected graph ensure symmetry
-      dist[v-1][u-1] = w
+      dist[v][u] = w
     
   # build up the array of shortest distance in dist
   for k in range(0,nV):
