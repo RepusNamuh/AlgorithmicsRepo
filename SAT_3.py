@@ -3,7 +3,7 @@ from collections import defaultdict, Counter
 # Setting Up the Configuration
 ###########0    1    2    3    4    5    6    7    8    9    10    11
 board = [[".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #0
-         [".", ".", ".", ".", ".", ".", ".", ".", ".", "1", ".", "."], #0
+         [".", "2", ".", ".", ".", ".", ".", ".", ".", "1", ".", "."], #0
          [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "1"], #2
          [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #3
          [".", ".", ".", ".", ".", ".", ".", "1", ".", ".", ".", "."], #4
@@ -13,20 +13,22 @@ board = [[".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #0
          [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #8
          ["1", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #9
          [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #10
-         [".", ".", "1", ".", ".", ".", ".", ".", ".", ".", ".", "."], #11
+         [".", ".", "1", ".", ".", ".", ".", "2", ".", ".", ".", "."], #11
         ]
 
 # Finding Square that contain number
 setup_config = defaultdict(int)
 # ADT to store movement that are no longer possible
 length = len(board)
-coor_list = list((i,j) for j in range(length) for i in range(length))
-permitted = ["0", "1", "2"]
+coor_list = set((i,j) for j in range(length) for i in range(length))
 traverse = []
 count = 0
 surrounding = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 solved = False
-moved = []
+affected = list()
+travelled = set()
+temp = set()
+no_guide = set()
 
 def layout_search():
     "Initital Search for number_square location"
@@ -34,8 +36,9 @@ def layout_search():
         for j, element in enumerate(row):
             if element != ".":
                 setup_config[(i, j)] = int(element)
+                coor_list.remove((i, j))
 
-def _okay_row_col(row, col):
+def _row_col(row, col):
     for i in range(length):
         value = board[i][col]
         if value == "c":
@@ -46,10 +49,10 @@ def _okay_row_col(row, col):
             return False
     return True
 
-def _okay_surrounding(row, col):
+def _surrounding(row, col):
     for i, j in surrounding:
         value = (row + i, col + j)
-        if value in coor_list:
+        if value in coor_list or value in travelled:
             if value in setup_config:
                 max = setup_config[(row+i, col +j)]
                 if max == 0:
@@ -59,28 +62,58 @@ def _okay_surrounding(row, col):
     return True
 
 def is_okay(row, col):
-    if (row, col) not in coor_list or (row, col) in traverse:
+    global coor_list, traverse, no_guide
+    if ((row, col) not in coor_list or (row, col) in traverse) and ((row, col) not in no_guide):
         return False
-    elif _okay_row_col(row, col) and _okay_surrounding(row, col):
+    elif _row_col(row, col) and _surrounding(row, col):
         return True
     return False
 
-def number(cell, reverse = False):
+def is_fine(row, col, reverse):
+    global temp
+    if reverse:
+        if (row, col) in temp:
+            coor_list.add((row, col))
+    else:
+        if (row, col) in coor_list:
+            coor_list.remove((row, col))
+            temp.add((row, col))
+        elif (row, col) in travelled:
+            temp.add((row, col))
+
+def number_surround(row, col, reverse):
+    setup_config[(row, col)] += 1 if reverse else -1
+    if setup_config[(row, col)] == 0:
+        for i, j in surrounding:
+            i += row
+            j += col
+            is_fine(i, j, reverse)
+
+def image(cell, reverse = False):
+    global temp
+    if reverse:
+        temp = affected.pop()
     for i, j in surrounding:
         row = cell[0] + i
         col = cell[1] + j
         if (row, col) in setup_config:
-            setup_config[(row, col)] += 1 if reverse else -1
-        elif (row, col) in coor_list:
-            board[row][col] = "." if reverse else "-"
+            number_surround(row, col, reverse)
+            continue
+        is_fine(row, col, reverse)
+
     row, col = cell
     for i in range(length):
-        if board[i][col] not in permitted:
-            board[i][col] = "." if reverse else "-"
+        if i == row:
+            continue
+        is_fine(i, col, reverse)
     for j in range(length):
-        if board[row][j] not in permitted:
-            board[row][j] = "." if reverse else "-"
-
+        if j == col:
+            continue
+        is_fine(row, j, reverse)
+    if not reverse:
+        affected.append(temp)
+    temp = set()
+        
 def number_check():
     """A look up to see if all the numbered square have been fullfill"""
     for key, value in setup_config.items():
@@ -89,19 +122,20 @@ def number_check():
     return None
 
 def recursion(row, col):
-    number((row, col))
+    travelled.add((row, col))
     board[row][col] = "c"
+    image((row, col))
     traverse.append((row, col))
-    backtrack()
+    backtrack(coor_list)
     if len(traverse) == length:
         return
     board[row][col] = "."
     traverse.remove((row, col)) 
-    number((row, col), True)
+    image((row, col), True)
 
 # This method is no different from simply starting at a random location instead of a specific start place
-def backtrack():
-    global count, solved
+def backtrack(move_list):
+    global no_guide, count, solved
     count += 1
     if len(traverse) == length:
         solved = True
@@ -113,13 +147,15 @@ def backtrack():
             col = location[1] + j
             if is_okay(row, col):
                 recursion(row, col)
+            no_guide = set()
     else:
-        for i, j in coor_list:
+        for i, j in move_list.copy():
             if is_okay(i, j):
+                no_guide.add((i, j))
                 recursion(i, j)
-                     
+                
 layout_search()
-backtrack()
+backtrack(coor_list)
 if not solved:
     print(f"Steps: {count}, Unsolvable")
 else:
