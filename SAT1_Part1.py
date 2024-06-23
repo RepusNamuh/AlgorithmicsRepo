@@ -1,20 +1,14 @@
 from collections import defaultdict, Counter
 
 # Setting Up the Configuration
-###########0    1    2    3    4    5    6    7    8    9    10    11
-board = [[".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #0
-         [".", ".", ".", ".", ".", ".", ".", ".", ".", "1", ".", "."], #0
-         [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "1"], #2
-         [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #3
-         [".", ".", ".", ".", ".", ".", ".", "1", ".", ".", ".", "."], #4
-         [".", ".", ".", "1", ".", ".", ".", ".", ".", ".", ".", "."], #5
-         [".", ".", ".", ".", ".", "1", ".", ".", ".", ".", ".", "."], #6
-         [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "1", "."], #7
-         [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #8
-         ["1", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #9
-         [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #10
-         [".", ".", "1", ".", ".", ".", ".", ".", ".", ".", ".", "."], #11
-        ]
+###########0    1    2    3    4    5  
+board = [[".", ".", ".", ".", ".", "."], #0
+         [".", "1", ".", ".", "1", "."], #1
+         [".", ".", ".", ".", ".", "."], #2
+         [".", ".", ".", ".", ".", "."], #3
+         [".", "1", ".", ".", ".", "."], #4
+         [".", ".", ".", ".", ".", "."], #5
+]
 
 # Finding Square that contain number
 setup_config = defaultdict(int)
@@ -113,16 +107,16 @@ def number_check():
     for key, value in setup_config.items():
             if value != 0:
                 return key
-    return None
+    return "."
     
 def next_move(number_square):
     """Search for the next possibe square"""
     # Two type of scenario, all number square are fullfill which mean we can start
     # extracting move from the coor_list/available_move
     # Other wise, Find the next possible move around number_square
-    if not number_square:
-            next = list(coor_list)[0] if coor_list else None
-            None_square.append(next) if next else None
+    if number_square == ".":
+            next = list(coor_list)[0] if coor_list else "."
+            None_square.append(next) if next!= "." else None
             return next
     row, col = number_square
     for i in [-1,0,1]:
@@ -130,8 +124,7 @@ def next_move(number_square):
             next = (row + i, col + j)
             if next != number_square and next in coor_list:
                 return next
-
-    return None
+    return "."
 
 # Checking if things need to be reverse
 def full_affected_check():
@@ -159,7 +152,7 @@ def reverse(next):
     global coor_list, coor_list_version, count, None_square, Count
     if Count == 994:
         return "Stop"
-    if (not next) or (count!= length and len(coor_list) ==0) or full_affected_check():
+    if (next == ".") or (count!= length and len(coor_list) ==0) or full_affected_check():
         count -= 2 if next else 1
         try:
             next ,coor_list = last.pop(), coor_list_version.pop()
@@ -197,7 +190,7 @@ def main(previous_square):
         out()
         return
     next = next_move(previous_square)
-    count += 1 if next else 0
+    count += 1 if next!= "." else 0
     reverse_check = reverse(next)
     if reverse_check == "Stop":
         print(f"Unsolvable with {Count} steps")
