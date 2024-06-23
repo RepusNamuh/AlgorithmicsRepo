@@ -20,14 +20,14 @@ board = [[".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #0
 setup_config = defaultdict(int)
 # ADT to store movement that are no longer possible
 length = len(board)
-coor_list = set((i,j) for j in range(length) for i in range(length))
 count = 0
 solved = False
 surrounding = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+coor_list = set((i,j) for j in range(length) for i in range(length))
 traverse = []
 affected = list()
-travelled = set()
 temp = set()
+no_guide = set()
 
 def layout_search():
     "Initital Search for number_square location"
@@ -37,36 +37,10 @@ def layout_search():
                 setup_config[(i, j)] = int(element)
                 coor_list.remove((i, j))
 
-def _row_col(row, col):
-    for i in range(length):
-        value = board[i][col]
-        if value == "c":
-            return False
-    for j in range(length):
-        value = board[row][j]
-        if value == "c":
-            return False
-    return True
-
-def _surrounding(row, col):
-    for i, j in surrounding:
-        value = (row + i, col + j)
-        if value in coor_list or value in travelled:
-            if value in setup_config:
-                max = setup_config[(row+i, col +j)]
-                if max == 0:
-                    return False
-            elif board[value[0]][value[1]] == "c":
-                return False
-    return True
-
 def is_okay(row, col):
-    global coor_list, traverse, no_guide
-    if ((row, col) not in coor_list or (row, col) in traverse):
+    if (row, col) not in coor_list or (row, col) in traverse or (row, col) in no_guide:
         return False
-    elif _row_col(row, col) and _surrounding(row, col):
-        return True
-    return False
+    return True
 
 def is_fine(row, col, reverse):
     global temp
@@ -77,12 +51,12 @@ def is_fine(row, col, reverse):
         if (row, col) in coor_list:
             coor_list.remove((row, col))
             temp.add((row, col))
-        elif (row, col) in travelled:
+        elif (row, col) in no_guide:
             temp.add((row, col))
 
 def number_surround(row, col, reverse):
     setup_config[(row, col)] += 1 if reverse else -1
-    if setup_config[(row, col)] == 0:
+    if setup_config[(row, col)] == 0 or reverse:
         for i, j in surrounding:
             i += row
             j += col
@@ -121,7 +95,6 @@ def number_check():
     return None
 
 def recursion(row, col):
-    travelled.add((row, col))
     board[row][col] = "c"
     image((row, col))
     traverse.append((row, col))
@@ -146,9 +119,12 @@ def backtrack(move_list):
             col = location[1] + j
             if is_okay(row, col):
                 recursion(row, col)
+            no_guide = set()
     else:
         for i, j in move_list.copy():
             if is_okay(i, j):
+                if len(setup_config) > 0:
+                    no_guide.add((i, j))
                 recursion(i, j)
                 
 layout_search()
