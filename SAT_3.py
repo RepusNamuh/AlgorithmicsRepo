@@ -3,17 +3,17 @@ from collections import defaultdict, Counter
 # Setting Up the Configuration
 ###########0    1    2    3    4    5    6    7    8    9    10    11
 board = [[".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #0
-         [".", "2", ".", ".", ".", ".", ".", ".", ".", "1", ".", "."], #0
-         [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "1"], #2
-         [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #3
-         [".", ".", ".", ".", ".", ".", ".", "1", ".", ".", ".", "."], #4
-         [".", ".", ".", "1", ".", ".", ".", ".", ".", ".", ".", "."], #5
-         [".", ".", ".", ".", ".", "1", ".", ".", ".", ".", ".", "."], #6
-         [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "1", "."], #7
+         [".", ".", ".", ".", ".", ".", ".", ".", "2", ".", ".", "."], #1
+         [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #2
+         [".", ".", "1", ".", ".", ".", ".", ".", ".", ".", ".", "."], #3
+         [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #4
+         [".", ".", ".", ".", ".", "2", ".", ".", ".", ".", ".", "."], #5
+         [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #6
+         [".", "1", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #7
          [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #8
-         ["1", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #9
-         [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #10
-         [".", ".", "1", ".", ".", ".", ".", "2", ".", ".", ".", "."], #11
+         [".", ".", ".", ".", ".", ".", ".", ".", ".", "1", ".", "."], #9
+         [".", ".", ".", "1", ".", ".", ".", "1", ".", ".", ".", "."], #10
+         [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #11
         ]
 
 # Finding Square that contain number
@@ -21,14 +21,13 @@ setup_config = defaultdict(int)
 # ADT to store movement that are no longer possible
 length = len(board)
 coor_list = set((i,j) for j in range(length) for i in range(length))
-traverse = []
 count = 0
-surrounding = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 solved = False
+surrounding = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+traverse = []
 affected = list()
 travelled = set()
 temp = set()
-no_guide = set()
 
 def layout_search():
     "Initital Search for number_square location"
@@ -63,7 +62,7 @@ def _surrounding(row, col):
 
 def is_okay(row, col):
     global coor_list, traverse, no_guide
-    if ((row, col) not in coor_list or (row, col) in traverse) and ((row, col) not in no_guide):
+    if ((row, col) not in coor_list or (row, col) in traverse):
         return False
     elif _row_col(row, col) and _surrounding(row, col):
         return True
@@ -147,11 +146,9 @@ def backtrack(move_list):
             col = location[1] + j
             if is_okay(row, col):
                 recursion(row, col)
-            no_guide = set()
     else:
         for i, j in move_list.copy():
             if is_okay(i, j):
-                no_guide.add((i, j))
                 recursion(i, j)
                 
 layout_search()
