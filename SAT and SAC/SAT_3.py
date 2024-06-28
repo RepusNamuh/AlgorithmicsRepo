@@ -7,13 +7,13 @@ board = [[".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #0
          [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #2
          [".", ".", "1", ".", ".", ".", ".", ".", ".", ".", ".", "."], #3
          [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #4
-         [".", ".", ".", ".", ".", "2", ".", ".", ".", ".", ".", "."], #5
+         [".", ".", ".", ".", ".", "2", ".", ".", ".", ".", ".", "1"], #5
          [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #6
          [".", "1", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #7
          [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #8
          [".", ".", ".", ".", ".", ".", ".", ".", ".", "1", ".", "."], #9
          [".", ".", ".", "1", ".", ".", ".", "1", ".", ".", ".", "."], #10
-         [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #11
+         [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "1"], #11
         ]
 
 # Finding Square that contain number
@@ -42,7 +42,7 @@ def is_okay(row, col):
         return False
     return True
 
-def is_fine(row, col, reverse):
+def if_fine_change(row, col, reverse):
     global temp
     if reverse:
         if (row, col) in temp:
@@ -60,7 +60,7 @@ def number_surround(row, col, reverse):
         for i, j in surrounding:
             i += row
             j += col
-            is_fine(i, j, reverse)
+            if_fine_change(i, j, reverse)
 
 def image(cell, reverse = False):
     global temp
@@ -72,17 +72,17 @@ def image(cell, reverse = False):
         if (row, col) in setup_config:
             number_surround(row, col, reverse)
             continue
-        is_fine(row, col, reverse)
+        if_fine_change(row, col, reverse)
 
     row, col = cell
     for i in range(length):
         if i == row:
             continue
-        is_fine(i, col, reverse)
+        if_fine_change(i, col, reverse)
     for j in range(length):
         if j == col:
             continue
-        is_fine(row, j, reverse)
+        if_fine_change(row, j, reverse)
     if not reverse:
         affected.append(temp)
     temp = set()
