@@ -27,6 +27,8 @@ coor_list = set((i,j) for j in range(length) for i in range(length))
 traverse = []
 affected = list()
 temp = set()
+# A variable that store visited square that wasn't base on any number
+# That is it is chosen freely from the available space of the matrix
 no_guide = set()
 
 def layout_search():
@@ -38,23 +40,26 @@ def layout_search():
                 coor_list.remove((i, j))
 
 def is_okay(row, col):
+    """The purpose is simply to check if the move is valid or exist"""
     if (row, col) not in coor_list or (row, col) in traverse or (row, col) in no_guide:
         return False
     return True
 
 def if_fine_change(row, col, reverse):
+    """Changing a square state -> affected/normal -> remove/add to coor_list"""
     global temp
     if reverse:
         if (row, col) in temp:
-            coor_list.add((row, col))
+            coor_list.add((row, col)) #Re-adding previously eliminated square
     else:
         if (row, col) in coor_list:
-            coor_list.remove((row, col))
-            temp.add((row, col))
+            coor_list.remove((row, col)) #Removing affected square
+            temp.add((row, col)) # Adding the affected square to a list of affected square
         elif (row, col) in no_guide:
-            temp.add((row, col))
+            temp.add((row, col)) 
 
 def number_surround(row, col, reverse):
+    """Changing the square state around number: square -> affected/normal when reverse = False/True"""
     setup_config[(row, col)] += 1 if reverse else -1
     if setup_config[(row, col)] == 0 or reverse:
         for i, j in surrounding:
@@ -63,9 +68,12 @@ def number_surround(row, col, reverse):
             if_fine_change(i, j, reverse)
 
 def image(cell, reverse = False):
+    """Create an image or go back to a previous image or the game"""
     global temp
     if reverse:
-        temp = affected.pop()
+        temp = affected.pop() # Going back to the previous image
+    
+    # Assessing surrounding square depending on reverse = False/True
     for i, j in surrounding:
         row = cell[0] + i
         col = cell[1] + j
@@ -74,15 +82,20 @@ def image(cell, reverse = False):
             continue
         if_fine_change(row, col, reverse)
 
+    # Assessing the square in a row
     row, col = cell
     for i in range(length):
         if i == row:
             continue
         if_fine_change(i, col, reverse)
+
+    # Assessing the square in a column
     for j in range(length):
         if j == col:
             continue
         if_fine_change(row, j, reverse)
+    
+    # If not backtracking then store the current image
     if not reverse:
         affected.append(temp)
     temp = set()
@@ -95,6 +108,7 @@ def number_check():
     return None
 
 def recursion(row, col):
+    """The backtracking function"""
     board[row][col] = "c"
     image((row, col))
     traverse.append((row, col))
@@ -107,6 +121,7 @@ def recursion(row, col):
 
 # This method is no different from simply starting at a random location instead of a specific start place
 def backtrack(move_list):
+    """The main function"""
     global no_guide, count, solved
     count += 1
     if len(traverse) == length:
