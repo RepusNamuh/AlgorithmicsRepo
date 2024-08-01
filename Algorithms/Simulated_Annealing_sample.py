@@ -45,8 +45,3 @@ def Simulated_Annealing(A, d, error, step_size):
         T = T * 0.99
 
     return X, smallest_diff
-
-A = [2, 3, 5, 6, 8, 10]
-d = 10
-
-print(Simulated_Annealing(A, d, 0.5, 100))
