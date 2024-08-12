@@ -16,7 +16,7 @@ board = [[".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "."], #0
          [".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "1"], #11
         ]
 
-# Finding Square that contain number
+
 setup_config = defaultdict(int)
 # ADT to store movement that are no longer possible
 length = len(board)
@@ -26,7 +26,7 @@ repeat = False
 surrounding = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 coor_list = set((i,j) for j in range(length) for i in range(length))
 traverse = []
-all_image = list()
+all_image = {}
 affected = list()
 temp = set()
 # A variable that store visited square that wasn't base on any number
@@ -74,6 +74,7 @@ def image(cell, reverse = False):
     global temp, repeat
     if reverse:
         temp = affected.pop() # Going back to the previous image
+        all_image[tuple(temp)] = False
     
     # Assessing surrounding square depending on reverse = False/True
     for i, j in surrounding:
@@ -98,12 +99,14 @@ def image(cell, reverse = False):
         if_fine_change(row, j, reverse)
     
     # If not backtracking then store the current image
+    temp = tuple(temp)
     if not reverse:
         if temp not in all_image:
-            all_image.append(temp)
+            all_image[temp] = True
         else:
-            repeat = True
-        affected.append(temp)
+            if not all_image[temp]:
+                repeat = True
+        affected.append(set(temp))
 
     temp = set()
         
@@ -122,7 +125,6 @@ def recursion(row, col):
     traverse.append((row, col))
 
     backtrack(coor_list)
-    if solved: return
 
     repeat = False
     board[row][col] = "."
@@ -138,6 +140,7 @@ def backtrack(move_list):
     # Base Case when a solution is found
     if len(traverse) == length:
         solved = True
+        print(f"Steps: {count}", traverse)
         return
     
     # Avoiding image repetition
@@ -170,5 +173,3 @@ else:
     print(f"Steps: {count}", traverse)
     for row in board:
         print(row)
-                
-    
