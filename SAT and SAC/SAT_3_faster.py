@@ -71,10 +71,10 @@ def number_surround(row, col, reverse):
 
 def image(cell, reverse = False):
     """Create an image or go back to a previous image or the game"""
-    global temp, repeat
+    global temp, repeat, coor_list
     if reverse:
         temp = affected.pop() # Going back to the previous image
-        all_image[tuple(temp)] = False
+        all_image[frozenset(coor_list)] = False
     
     # Assessing surrounding square depending on reverse = False/True
     for i, j in surrounding:
@@ -99,15 +99,16 @@ def image(cell, reverse = False):
         if_fine_change(row, j, reverse)
     
     # If not backtracking then store the current image
-    temp = tuple(temp)
+    coor_list = frozenset(coor_list)
     if not reverse:
-        if temp not in all_image:
-            all_image[temp] = True
+        if coor_list not in all_image:
+            all_image[coor_list] = True
         else:
-            if not all_image[temp]:
+            if not all_image[coor_list]:
                 repeat = True
-        affected.append(set(temp))
+        affected.append(temp)
 
+    coor_list = set(coor_list)
     temp = set()
         
 def number_check():
@@ -139,13 +140,13 @@ def backtrack(move_list):
 
     # Base Case when a solution is found
     if len(traverse) == length:
-        solved = True
         print(f"Steps: {count}", traverse)
+        solved = True
+        return
+    if repeat:
         return
     
     # Avoiding image repetition
-    if repeat and len(traverse) < length - 1:
-        return
     
     # Number square dependency
     location = number_check()
@@ -173,3 +174,4 @@ else:
     print(f"Steps: {count}", traverse)
     for row in board:
         print(row)
+
