@@ -1,4 +1,5 @@
 import random, math
+from typing import List
 
 def subset(X, A):
     Y = X.copy()
@@ -15,7 +16,7 @@ def subset(X, A):
     
     return Y
 
-def Simulated_Annealing(A, d, error, step_size):
+def Simulated_Annealing(A: List, d: int, error:float, step_size: float):
     X = []
     rand_int = random.randint(0, len(A) - 1)
     for i in range(rand_int):
