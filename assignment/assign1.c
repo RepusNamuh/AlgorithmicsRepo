@@ -166,8 +166,8 @@ readVotes(candidate_t candidates[], int noCandidates,
         }
 
         candidates[i].votes[*noVotes] = preference;
-        // if the vote for the current candidate is 1 (first preference), 
-        // increase their vote count.
+        // if the preference for the current candidate is 
+        // 1 (first preference), increase their vote count.
         if (preference == 1) {
             candidates[i].firstPrefCount++;
         }
@@ -185,12 +185,14 @@ void stageOne(candidate_t candidates[], int noCandidates, int noVotes) {
     printf("voter %d preferences...\n", noVotes);
 
     name_t tempArray[noCandidates];
-
+    // Linear Reordering of candidates based on 
+    // the last voter's preferences.
     for (int i = 0; i < noCandidates; i++) {
         int index = candidates[i].votes[noVotes - 1];
         strcpy(tempArray[index - 1], candidates[i].name);
     }
 
+    // Print out the last voter's preferences
     for (int i = 0; i < noCandidates; i++) {
         printf("    rank %2d: %s\n", i + 1, tempArray[i]);
     }
@@ -242,6 +244,7 @@ void stageTwo(candidate_t candidates[], int noCandidates,
 }
 
 void insertionSort(candidate_t votingPool[], int noCandidates) {
+    // Insertion Sort structured from Geeks for Geeks
     for (int i = 1; i < noCandidates; i++) {
 
         candidate_t key = votingPool[i];
@@ -253,7 +256,8 @@ void insertionSort(candidate_t votingPool[], int noCandidates) {
             // Same vote count, sort alphabetically
             if (votingPool[j].firstPrefCount == 
                 key.firstPrefCount) {
-
+                
+               // Smaller name goes first 
                 if (strcmp(votingPool[j].name, key.name) < 0) {
                     break;
                 }
@@ -307,8 +311,10 @@ void statusReport(candidate_t votingPool[], int noCandidates, int elimIndex,
     int winner = noCandidates - elimIndex;
     if ((noCandidates == 1 || noCandidates == 0) &&
         votingPool[winner].firstPrefCount > (noVotes / 2)) {
+
         printf("    %s is declared elected\n", 
             votingPool[winner].name);
+
         *elected = TRUE;
     }
 
@@ -333,7 +339,8 @@ void redistributeVotes(candidate_t votingPool[],
         // Find the next preferred candidate
         // by looking for the lowest preference number
         // among the remaining candidates.
-        // <= noCandidates to include the eliminated candidate
+        // <= noCandidates to include size pre-elimination
+        // allowing all remaining candidates to be considered
         int incrementIndex = 0, lowestPref = MAXCANDIDATES + 1;
         for (int j = 0; j <= noCandidates;j++) {
             if (votingPool[j].eliminated == 1) {
