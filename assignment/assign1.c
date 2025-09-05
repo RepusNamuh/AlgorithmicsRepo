@@ -47,6 +47,11 @@ Dated: 03/09/2025
 #define TRUE 1
 #define FALSE 0
 #define FIRSTROUND 1
+#define FIRSTPREF 1
+#define STAGETWO 2
+#define STAGETHREE 3
+#define NOTFOUND -1
+#define MAJORITY 50.00
 
 typedef char name_t[NAMEMAX + 1];
 
@@ -72,10 +77,11 @@ void stageTwo(candidate_t candidates[], int noCandidates,
 void redistributeVotes(candidate_t candidates[], int noCandidates, 
                             int noVotes, int elimIndex);
 
-int elimination(candidate_t votingPool[], int *remainingCandidates);
+int elimination(candidate_t votingPool[], int remainingCandidates, 
+                            int noVotes, int *winner);
 
 void statusReport(candidate_t votingPool[], int noCandidates, 
-                int elimIndex, int *elected, int noVotes);
+                int elimIndex, int *elected, int *winner, int noVotes);
 
 void insertionSort(candidate_t votingPool[], int noCandidates);
 ///////////////////////////////////////////////////////////////////////
@@ -101,7 +107,7 @@ main(int argc, char *argv[]) {
         getword(dummy.name, NAMEMAX);
         strcpy(candidates[i].name, dummy.name);
         candidates[i].firstPrefCount = 0;
-        candidates[i].eliminated = 0;
+        candidates[i].eliminated = FALSE;
         i++;
     }
 
@@ -113,9 +119,9 @@ main(int argc, char *argv[]) {
     stageOne(candidates, noCandidates, noVotes);
 
     // Stage two and three of the preferential voting system
-    stageTwo(candidates, noCandidates, noVotes, 2);
+    stageTwo(candidates, noCandidates, noVotes, STAGETWO);
     printf("\n");
-    stageTwo(candidates, noCandidates, noVotes, 3);
+    stageTwo(candidates, noCandidates, noVotes, STAGETHREE);
 
     // all done, time to go home
     printf("tadaa!\n");
@@ -168,7 +174,7 @@ readVotes(candidate_t candidates[], int noCandidates,
         candidates[i].votes[*noVotes] = preference;
         // if the preference for the current candidate is 
         // 1 (first preference), increase their vote count.
-        if (preference == 1) {
+        if (preference == FIRSTPREF) {
             candidates[i].firstPrefCount++;
         }
         i++;
@@ -212,8 +218,9 @@ void stageTwo(candidate_t candidates[], int noCandidates,
     int elimIndex = 0;
 
     candidate_t votingPool[remainingCandidates];
-    for (int i = 0; i < remainingCandidates; i++) {
-        votingPool[i] = candidates[i];
+    for (int candidate = 0; candidate < remainingCandidates; 
+                                                candidate++) {
+        votingPool[candidate] = candidates[candidate];
     }
 
     while (!elected) {
@@ -221,14 +228,18 @@ void stageTwo(candidate_t candidates[], int noCandidates,
 
         // Move eliminated candidate to the end of the array
         
-        if (stage == 3) {
+        if (stage == STAGETHREE) {
             // Insertion Sort, sorting from highest preference to lowest
             insertionSort(votingPool, remainingCandidates);
         }
         
-        elimIndex = elimination(votingPool, &remainingCandidates);
+        int winner = NOTFOUND;
+        elimIndex = elimination(votingPool, remainingCandidates, 
+                                noVotes, &winner);
+
         statusReport(votingPool, remainingCandidates, elimIndex, 
-                                                &elected, noVotes);
+                                            &elected, &winner, noVotes);
+
         redistributeVotes(votingPool, remainingCandidates, noVotes, 
                                                         elimIndex);
         
@@ -238,20 +249,20 @@ void stageTwo(candidate_t candidates[], int noCandidates,
         for (int i = elimIndex; i < remainingCandidates; i++) {
             votingPool[i] = votingPool[i + 1];
         }
-        votingPool[remainingCandidates] = temp;
+        votingPool[--remainingCandidates] = temp;
         round++;
     }
 }
 
 void insertionSort(candidate_t votingPool[], int noCandidates) {
     // Insertion Sort structured from Geeks for Geeks
-    for (int i = 1; i < noCandidates; i++) {
+    for (int candidate = 1; candidate < noCandidates; candidate++) {
 
-        candidate_t key = votingPool[i];
-        int j = i - 1;
+        candidate_t key = votingPool[candidate];
+        int j = candidate - 1;
 
-        while (votingPool[j].firstPrefCount <= 
-                key.firstPrefCount && j >= 0) {
+        while ((votingPool[j].firstPrefCount <= 
+                key.firstPrefCount) && j >= 0) {
             
             // Same vote count, sort alphabetically
             if (votingPool[j].firstPrefCount == 
@@ -271,19 +282,28 @@ void insertionSort(candidate_t votingPool[], int noCandidates) {
 }
 
 // Eliminate the candidate with the lowest poll by Linear Search
-int elimination(candidate_t votingPool[], int *remainingCandidates) {
+// Check if any candidate has more than 50% of the votes
+int elimination(candidate_t votingPool[], int remainingCandidates, 
+                            int noVotes, int *winner) {
     int minVotes = votingPool[0].firstPrefCount;
-    int elimIndex = 0;
+    int maxVotes = votingPool[0].firstPrefCount;
+    int elimIndex = 0, potentialWinner = 0;
 
-    for (int i = 1; i < *remainingCandidates; i++) {
-        if (votingPool[i].firstPrefCount < minVotes) {
-            minVotes = votingPool[i].firstPrefCount;
-            elimIndex = i;
+    for (int candidate = 1; candidate < remainingCandidates; candidate++) {
+        if (votingPool[candidate].firstPrefCount < minVotes) {
+            minVotes = votingPool[candidate].firstPrefCount;
+            elimIndex = candidate;
+        }
+        if (votingPool[candidate].firstPrefCount > maxVotes) {
+            maxVotes = votingPool[candidate].firstPrefCount;
+            potentialWinner = candidate;
         }
     }
-
-    votingPool[elimIndex].eliminated = 1;
-    (*remainingCandidates)--;
+    double percent = (double)maxVotes / (double)(noVotes) * 100.0;
+    if (percent > MAJORITY) {
+        *winner = potentialWinner;
+    }
+    votingPool[elimIndex].eliminated = TRUE;
 
     return elimIndex;
 }
@@ -291,11 +311,9 @@ int elimination(candidate_t votingPool[], int *remainingCandidates) {
 // Print out the candidate status before elimination
 // Announce the eliminated candidate or the elected candidate after elimination
 void statusReport(candidate_t votingPool[], int noCandidates, int elimIndex, 
-                int *elected, int noVotes) {
+                int *elected, int *winner, int noVotes) {
     
-    // i <= noCandidates to include the eliminated candidate
-    // Since the loop below report status pre-elimination
-    for (int i = 0; i <= noCandidates; i++) {
+    for (int i = 0; i < noCandidates; i++) {
 
         int voteCount = votingPool[i].firstPrefCount;
         double percent = (double)voteCount / (double)(noVotes) * 100.0;
@@ -308,12 +326,11 @@ void statusReport(candidate_t votingPool[], int noCandidates, int elimIndex,
 
     // Index of the winning candidate if there is only one candidate left
     // Winner declared if they have more than 50% of the votes
-    int winner = noCandidates - elimIndex;
-    if ((noCandidates == 1 || noCandidates == 0) &&
-        votingPool[winner].firstPrefCount > (noVotes / 2)) {
+    // before elimination process
+    if (*winner != NOTFOUND) {
 
         printf("    %s is declared elected\n", 
-            votingPool[winner].name);
+            votingPool[*winner].name);
 
         *elected = TRUE;
     }
@@ -332,7 +349,7 @@ void redistributeVotes(candidate_t votingPool[],
 
     for (int i = 0; i < noVotes; i++) {
         int pref = votingPool[elimIndex].votes[i];
-        if (pref != 1) {
+        if (pref != FIRSTPREF) {
             continue;
         }
 
@@ -342,8 +359,8 @@ void redistributeVotes(candidate_t votingPool[],
         // <= noCandidates to include size pre-elimination
         // allowing all remaining candidates to be considered
         int incrementIndex = 0, lowestPref = MAXCANDIDATES + 1;
-        for (int j = 0; j <= noCandidates;j++) {
-            if (votingPool[j].eliminated == 1) {
+        for (int j = 0; j < noCandidates;j++) {
+            if (votingPool[j].eliminated) {
                 continue;
             }
             if (votingPool[j].votes[i] < lowestPref) {
