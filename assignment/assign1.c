@@ -74,8 +74,8 @@ void stageOne(candidate_t candidates[], int noCandidates, int noVotes);
 void stageTwo(candidate_t candidates[], int noCandidates, 
                 int noVotes, int stage);
 
-void redistributeVotes(candidate_t candidates[], int noCandidates, 
-                            int noVotes, int elimIndex);
+void redistributeVotes(candidate_t candidates[], int remainingCandidates, 
+                    int noCandidates, int noVotes, int elimIndex);
 
 int elimination(candidate_t votingPool[], int remainingCandidates, 
                             int noVotes, int *winner);
@@ -240,8 +240,8 @@ void stageTwo(candidate_t candidates[], int noCandidates,
         statusReport(votingPool, remainingCandidates, elimIndex, 
                                             &elected, &winner, noVotes);
 
-        redistributeVotes(votingPool, remainingCandidates, noVotes, 
-                                                        elimIndex);
+        redistributeVotes(votingPool, remainingCandidates, 
+                                      noCandidates, noVotes, elimIndex);
         
         // Shift the eliminated candidate to the end of the array
         // maintaining the order of the remaining candidates
@@ -254,8 +254,10 @@ void stageTwo(candidate_t candidates[], int noCandidates,
     }
 }
 
+// Sort by number of firstPrefCount, descending
 void insertionSort(candidate_t votingPool[], int noCandidates) {
     // Insertion Sort structured from Geeks for Geeks
+
     for (int candidate = 1; candidate < noCandidates; candidate++) {
 
         candidate_t key = votingPool[candidate];
@@ -282,14 +284,15 @@ void insertionSort(candidate_t votingPool[], int noCandidates) {
 }
 
 // Eliminate the candidate with the lowest poll by Linear Search
-// Check if any candidate has more than 50% of the votes
 int elimination(candidate_t votingPool[], int remainingCandidates, 
                             int noVotes, int *winner) {
+
+    //Initilising value to first candidate.
     int minVotes = votingPool[0].firstPrefCount;
     int maxVotes = votingPool[0].firstPrefCount;
     int elimIndex = 0, potentialWinner = 0;
 
-    for (int candidate = 1; candidate < remainingCandidates; candidate++) {
+    for (int candidate = 0; candidate < remainingCandidates; candidate++) {
         if (votingPool[candidate].firstPrefCount < minVotes) {
             minVotes = votingPool[candidate].firstPrefCount;
             elimIndex = candidate;
@@ -344,31 +347,53 @@ void statusReport(candidate_t votingPool[], int noCandidates, int elimIndex,
 
 // Redistribute the votes of the eliminated candidate
 // to the next preferred candidate on each ballot
-void redistributeVotes(candidate_t votingPool[], 
-    int noCandidates, int noVotes, int elimIndex) {
+void redistributeVotes(candidate_t votingPool[], int remainingCandidates, 
+    int totalCandidates, int noVotes, int elimIndex) {
+
+    // To include preferences of eliminated candidates
+    // e.g, after second round of elimination,
+    // all third preferences and below, from all ballots need to 
+    // move into the remaining candidates
+    int highestPreft = totalCandidates - remainingCandidates + FIRSTPREF;
 
     for (int i = 0; i < noVotes; i++) {
         int pref = votingPool[elimIndex].votes[i];
-        if (pref != FIRSTPREF) {
+        // Lower preference than require for redistribution
+        if (pref > highestPreft) { 
             continue;
         }
 
         // Find the next preferred candidate
         // by looking for the lowest preference number
         // among the remaining candidates.
-        // <= noCandidates to include size pre-elimination
-        // allowing all remaining candidates to be considered
         int incrementIndex = 0, lowestPref = MAXCANDIDATES + 1;
-        for (int j = 0; j < noCandidates;j++) {
+
+        //flag to indicate a lower preference in the ballot than
+        // highestPreft
+        int lowerPrefFound = FALSE; 
+
+        for (int j = 0; j < remainingCandidates;j++) {
             if (votingPool[j].eliminated) {
                 continue;
             }
-            if (votingPool[j].votes[i] < lowestPref) {
+            // Within this particular ballot,
+            // if there is a candidate with a higher preference
+            // than the eliminated candidate,
+            // then no redistribution is needed.
+            int currentPreft = votingPool[j].votes[i];
+            if (currentPreft < pref) {
+                lowerPrefFound = TRUE;
+                break;
+            }
+
+            if (currentPreft < lowestPref) {
                 lowestPref = votingPool[j].votes[i];
                 incrementIndex = j;
             }
         }
-        votingPool[incrementIndex].firstPrefCount++;
+        if (!lowerPrefFound) {
+            votingPool[incrementIndex].firstPrefCount++;
+        }
     }
 }
 
