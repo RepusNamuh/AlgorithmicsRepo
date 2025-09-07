@@ -79,8 +79,7 @@ void stageOne(candidate_t votingPool[], pollStatus_t stat);
 
 void stageTwo(candidate_t votingPool[], pollStatus_t stat, int stage);
 
-void redistributeVotes(candidate_t votingPool[], pollStatus_t stat, 
-                                                        int elimIndex);
+void redistributeVotes(candidate_t votingPool[], pollStatus_t stat);
 
 int elimination(candidate_t votingPool[], pollStatus_t stat, int *winner);
 
@@ -114,13 +113,14 @@ main(int argc, char *argv[]) {
     while (i < stat.totalCandidates) {
         getword(dummy.name, NAMEMAX);
         strcpy(votingPool[i].name, dummy.name);
-        votingPool[i].firstPrefCount = 0;
+        votingPool[i].originalCount = 0;
         votingPool[i].eliminated = FALSE;
         i++;
     }
 
-    // Getting the votes for each candidate
+    // Getting the votes for each candidate and initial firstPrefCount
     readVotes(votingPool, &stat, MAXVOTES);
+    reset(votingPool, &stat);
 
     // Outputting stage one results
     printf("\n");
@@ -186,7 +186,6 @@ readVotes(candidate_t votingPool[], pollStatus_t *stat, int limit) {
         // if the preference for the current candidate is 
         // 1 (first preference), increase their vote count.
         if (preference == FIRSTPREF) {
-            votingPool[i].firstPrefCount++;
             votingPool[i].originalCount++;
         }
         i++;
@@ -245,7 +244,7 @@ void stageTwo(candidate_t votingPool[], pollStatus_t stat, int stage) {
 
         shiftLeft(votingPool, elimIndex, &stat.remainingCandidates);
         
-        redistributeVotes(votingPool, stat, elimIndex);
+        redistributeVotes(votingPool, stat);
         round++;
     }
 }
@@ -349,8 +348,7 @@ void statusPrintOut(candidate_t votingPool[], int elimIndex,
 
 // Redistribute the votes of the eliminated candidate
 // to the next preferred candidate on each ballot
-void redistributeVotes(candidate_t votingPool[], pollStatus_t stat, 
-                                                    int elimIndex) {
+void redistributeVotes(candidate_t votingPool[], pollStatus_t stat) {
 
     // To include preferences of eliminated candidates
     // e.g, after second round of elimination,
@@ -396,7 +394,7 @@ void redistributeVotes(candidate_t votingPool[], pollStatus_t stat,
         }
     }
 }
-// Reset the elimination status and firstPrefCount
+// Reset/set the firstPrefCount and eliminated status of each candidate
 void reset(candidate_t votingPool[], pollStatus_t *stat) {
     for (int i = 0; i < stat->totalCandidates; i++) {
         votingPool[i].firstPrefCount = votingPool[i].originalCount;
