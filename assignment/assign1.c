@@ -42,8 +42,8 @@ Dated: 03/09/2025
 #include <assert.h>
 
 #define NAMEMAX 20
-#define MAXCANDIDATES 20
-#define MAXVOTES 999
+#define MAXCANDIDATES 20 
+#define MAXVOTES 1000
 #define TRUE 1
 #define FALSE 0
 #define FIRSTROUND 1
@@ -58,44 +58,52 @@ typedef char name_t[NAMEMAX + 1];
 typedef struct {
     name_t name;
     int votes[MAXVOTES];
-    int firstPrefCount;  // number of votes in favour of this candidate
+    int firstPrefCount; 
+    int originalCount; // number of votes in favour of this candidate
     int eliminated;
 } candidate_t;
+
+typedef struct {
+    int totalCandidates;
+    int remainingCandidates;
+    int totalVotes;
+} pollStatus_t;
 
 ///////////////////////////////////////////////////////////////////////
 
 int getword(char W[], int limit);
 
-int readVotes(candidate_t candidates[], int noCandidates, 
-                int *noVotes, int limit);
+int readVotes(candidate_t votingPool[], pollStatus_t *stat, int limit);
 
-void stageOne(candidate_t candidates[], int noCandidates, int noVotes);
+void stageOne(candidate_t votingPool[], pollStatus_t stat);
 
-void stageTwo(candidate_t candidates[], int noCandidates, 
-                int noVotes, int stage);
+void stageTwo(candidate_t votingPool[], pollStatus_t stat, int stage);
 
-void redistributeVotes(candidate_t candidates[], int remainingCandidates, 
-                    int noCandidates, int noVotes, int elimIndex);
+void redistributeVotes(candidate_t votingPool[], pollStatus_t stat, 
+                                                        int elimIndex);
 
-int elimination(candidate_t votingPool[], int remainingCandidates, 
-                            int noVotes, int *winner);
+int elimination(candidate_t votingPool[], pollStatus_t stat, int *winner);
 
-void statusReport(candidate_t votingPool[], int noCandidates, 
-                int elimIndex, int *elected, int *winner, int noVotes);
+void statusPrintOut(candidate_t votingPool[], int elimIndex, int *elected, 
+                    int *winner, pollStatus_t stat);
 
 void insertionSort(candidate_t votingPool[], int noCandidates);
+void shiftLeft(candidate_t votingPool[], int start, int *end);
+void reset(candidate_t votingPool[], pollStatus_t *stat);
 ///////////////////////////////////////////////////////////////////////
 
 // main program provides traffic control
 int
 main(int argc, char *argv[]) {
     // initialising variable and arrays
-    candidate_t candidates[MAXCANDIDATES], dummy;
-    int noCandidates = 0, noVotes = 0;
+    candidate_t votingPool[MAXCANDIDATES], dummy;
+    pollStatus_t stat;
+    stat.totalCandidates = 0;
+    stat.totalVotes = 0;
 
     //Reading the input
-    scanf("%d", &noCandidates);
-    if (noCandidates > MAXCANDIDATES) {
+    scanf("%d", &stat.totalCandidates);
+    if (stat.totalCandidates > MAXCANDIDATES) {
         printf("Too many candidates");
         exit(EXIT_FAILURE);
     }
@@ -103,28 +111,30 @@ main(int argc, char *argv[]) {
     // Getting the names of candidates and initialising
     // votes count and elimination status to 0
     int i = 0;
-    while (i < noCandidates) {
+    while (i < stat.totalCandidates) {
         getword(dummy.name, NAMEMAX);
-        strcpy(candidates[i].name, dummy.name);
-        candidates[i].firstPrefCount = 0;
-        candidates[i].eliminated = FALSE;
+        strcpy(votingPool[i].name, dummy.name);
+        votingPool[i].firstPrefCount = 0;
+        votingPool[i].eliminated = FALSE;
         i++;
     }
 
     // Getting the votes for each candidate
-    readVotes(candidates, noCandidates, &noVotes, MAXVOTES);
+    readVotes(votingPool, &stat, MAXVOTES);
 
     // Outputting stage one results
     printf("\n");
-    stageOne(candidates, noCandidates, noVotes);
+    stageOne(votingPool, stat);
 
     // Stage two and three of the preferential voting system
-    stageTwo(candidates, noCandidates, noVotes, STAGETWO);
+    stageTwo(votingPool, stat, STAGETWO);
     printf("\n");
-    stageTwo(candidates, noCandidates, noVotes, STAGETHREE);
+    reset(votingPool, &stat);
+    stageTwo(votingPool, stat, STAGETHREE);
 
     // all done, time to go home
     printf("tadaa!\n");
+    fflush(stdout);
     return 0;
 }
 
@@ -160,46 +170,49 @@ getword(char W[], int limit) {
 // Reading the votes until end of file
 // For each voter read in their preferences for each candidate.
 int 
-readVotes(candidate_t candidates[], int noCandidates, 
-                                int *noVotes, int limit) {
+readVotes(candidate_t votingPool[], pollStatus_t *stat, int limit) {
     int c, i = 0, preference;
+    int *totalVotes = &stat->totalVotes;
+    int *totalCandidates = &stat->totalCandidates;
 
-    while ((c=scanf("%d", &preference)) == 1 && *noVotes < limit) {
+    while ((c=scanf("%d", &preference)) == 1 && *totalVotes < limit) {
         // new line indicates a new voter
-        if (i >= noCandidates) {
+        if (i >= *totalCandidates) {
             i = 0;
-            (*noVotes)++;
+            (*totalVotes)++;
         }
 
-        candidates[i].votes[*noVotes] = preference;
+        votingPool[i].votes[*totalVotes] = preference;
         // if the preference for the current candidate is 
         // 1 (first preference), increase their vote count.
         if (preference == FIRSTPREF) {
-            candidates[i].firstPrefCount++;
+            votingPool[i].firstPrefCount++;
+            votingPool[i].originalCount++;
         }
         i++;
     }
-    (*noVotes)++;
+    (*totalVotes)++;
     return 0;
 }
 
-void stageOne(candidate_t candidates[], int noCandidates, int noVotes) {
+void stageOne(candidate_t votingPool[], pollStatus_t stat) {
     // Stage one of the preferential voting system
     printf("Stage 1\n");
     printf("=======\n");
-    printf("read %d candidates and %d votes\n", noCandidates, noVotes);
-    printf("voter %d preferences...\n", noVotes);
+    printf("read %d candidates and %d votes\n", 
+            stat.totalCandidates, stat.totalVotes);
+    printf("voter %d preferences...\n", stat.totalVotes);
 
-    name_t tempArray[noCandidates];
+    name_t tempArray[stat.totalCandidates];
     // Linear Reordering of candidates based on 
     // the last voter's preferences.
-    for (int i = 0; i < noCandidates; i++) {
-        int index = candidates[i].votes[noVotes - 1];
-        strcpy(tempArray[index - 1], candidates[i].name);
+    for (int i = 0; i < stat.totalCandidates; i++) {
+        int index = votingPool[i].votes[stat.totalVotes - 1];
+        strcpy(tempArray[index - 1], votingPool[i].name);
     }
 
     // Print out the last voter's preferences
-    for (int i = 0; i < noCandidates; i++) {
+    for (int i = 0; i < stat.totalCandidates; i++) {
         printf("    rank %2d: %s\n", i + 1, tempArray[i]);
     }
 
@@ -208,20 +221,12 @@ void stageOne(candidate_t candidates[], int noCandidates, int noVotes) {
 
 // Elimination stage by removing candidate with lowest winning votes
 // each round and redistribute the votes.
-void stageTwo(candidate_t candidates[], int noCandidates, 
-                int noVotes, int stage) {
+void stageTwo(candidate_t votingPool[], pollStatus_t stat, int stage) {
 
     printf("Stage %d\n", stage);
     printf("=======\n");
     int elected = FALSE, round = FIRSTROUND;
-    int remainingCandidates = noCandidates;
-    int elimIndex = 0;
-
-    candidate_t votingPool[remainingCandidates];
-    for (int candidate = 0; candidate < remainingCandidates; 
-                                                candidate++) {
-        votingPool[candidate] = candidates[candidate];
-    }
+    stat.remainingCandidates = stat.totalCandidates;
 
     while (!elected) {
         printf("round %d...\n", round);
@@ -230,28 +235,27 @@ void stageTwo(candidate_t candidates[], int noCandidates,
         
         if (stage == STAGETHREE) {
             // Insertion Sort, sorting from highest preference to lowest
-            insertionSort(votingPool, remainingCandidates);
+            insertionSort(votingPool, stat.remainingCandidates);
         }
         
         int winner = NOTFOUND;
-        elimIndex = elimination(votingPool, remainingCandidates, 
-                                noVotes, &winner);
+        int elimIndex = elimination(votingPool, stat, &winner);
 
-        statusReport(votingPool, remainingCandidates, elimIndex, 
-                                            &elected, &winner, noVotes);
+        statusPrintOut(votingPool, elimIndex, &elected, &winner, stat);
 
-        redistributeVotes(votingPool, remainingCandidates, 
-                                      noCandidates, noVotes, elimIndex);
+        shiftLeft(votingPool, elimIndex, &stat.remainingCandidates);
         
-        // Shift the eliminated candidate to the end of the array
-        // maintaining the order of the remaining candidates
-        candidate_t temp = votingPool[elimIndex];
-        for (int i = elimIndex; i < remainingCandidates; i++) {
-            votingPool[i] = votingPool[i + 1];
-        }
-        votingPool[--remainingCandidates] = temp;
+        redistributeVotes(votingPool, stat, elimIndex);
         round++;
     }
+}
+
+void shiftLeft(candidate_t votingPool[], int start, int *end) {
+    candidate_t temp = votingPool[start];
+    for (int i = start; i < *end - 1; i++) {
+        votingPool[i] = votingPool[i + 1];
+    }
+    votingPool[--*end] = temp;
 }
 
 // Sort by number of firstPrefCount, descending
@@ -263,8 +267,8 @@ void insertionSort(candidate_t votingPool[], int noCandidates) {
         candidate_t key = votingPool[candidate];
         int j = candidate - 1;
 
-        while ((votingPool[j].firstPrefCount <= 
-                key.firstPrefCount) && j >= 0) {
+        while (j >= 0 && (votingPool[j].firstPrefCount <= 
+                key.firstPrefCount)) {
             
             // Same vote count, sort alphabetically
             if (votingPool[j].firstPrefCount == 
@@ -284,15 +288,14 @@ void insertionSort(candidate_t votingPool[], int noCandidates) {
 }
 
 // Eliminate the candidate with the lowest poll by Linear Search
-int elimination(candidate_t votingPool[], int remainingCandidates, 
-                            int noVotes, int *winner) {
+int elimination(candidate_t votingPool[], pollStatus_t stat, int *winner) {
 
     //Initilising value to first candidate.
     int minVotes = votingPool[0].firstPrefCount;
     int maxVotes = votingPool[0].firstPrefCount;
     int elimIndex = 0, potentialWinner = 0;
 
-    for (int candidate = 0; candidate < remainingCandidates; candidate++) {
+    for (int candidate = 0; candidate < stat.remainingCandidates; candidate++) {
         if (votingPool[candidate].firstPrefCount < minVotes) {
             minVotes = votingPool[candidate].firstPrefCount;
             elimIndex = candidate;
@@ -302,7 +305,7 @@ int elimination(candidate_t votingPool[], int remainingCandidates,
             potentialWinner = candidate;
         }
     }
-    double percent = (double)maxVotes / (double)(noVotes) * 100.0;
+    double percent = (double)maxVotes / (double)(stat.totalVotes) * 100.0;
     if (percent > MAJORITY) {
         *winner = potentialWinner;
     }
@@ -313,13 +316,13 @@ int elimination(candidate_t votingPool[], int remainingCandidates,
 
 // Print out the candidate status before elimination
 // Announce the eliminated candidate or the elected candidate after elimination
-void statusReport(candidate_t votingPool[], int noCandidates, int elimIndex, 
-                int *elected, int *winner, int noVotes) {
+void statusPrintOut(candidate_t votingPool[], int elimIndex, 
+                int *elected, int *winner, pollStatus_t stat) {
     
-    for (int i = 0; i < noCandidates; i++) {
+    for (int i = 0; i < stat.remainingCandidates; i++) {
 
         int voteCount = votingPool[i].firstPrefCount;
-        double percent = (double)voteCount / (double)(noVotes) * 100.0;
+        double percent = (double)voteCount / (double)(stat.totalVotes) * 100.0;
 
         printf("    %-20s: %3d votes, %5.1lf%%\n",
                 votingPool[i].name, voteCount, percent);
@@ -327,7 +330,6 @@ void statusReport(candidate_t votingPool[], int noCandidates, int elimIndex,
 
     printf("    ----\n");
 
-    // Index of the winning candidate if there is only one candidate left
     // Winner declared if they have more than 50% of the votes
     // before elimination process
     if (*winner != NOTFOUND) {
@@ -347,17 +349,18 @@ void statusReport(candidate_t votingPool[], int noCandidates, int elimIndex,
 
 // Redistribute the votes of the eliminated candidate
 // to the next preferred candidate on each ballot
-void redistributeVotes(candidate_t votingPool[], int remainingCandidates, 
-    int totalCandidates, int noVotes, int elimIndex) {
+void redistributeVotes(candidate_t votingPool[], pollStatus_t stat, 
+                                                    int elimIndex) {
 
     // To include preferences of eliminated candidates
     // e.g, after second round of elimination,
     // all third preferences and below, from all ballots need to 
     // move into the remaining candidates
-    int highestPreft = totalCandidates - remainingCandidates + FIRSTPREF;
+    int highestPreft = 
+        stat.totalCandidates - stat.remainingCandidates + FIRSTPREF;
 
-    for (int i = 0; i < noVotes; i++) {
-        int pref = votingPool[elimIndex].votes[i];
+    for (int i = 0; i < stat.totalVotes; i++) {
+        int pref = votingPool[stat.remainingCandidates].votes[i];
         // Lower preference than require for redistribution
         if (pref > highestPreft) { 
             continue;
@@ -372,10 +375,7 @@ void redistributeVotes(candidate_t votingPool[], int remainingCandidates,
         // highestPreft
         int lowerPrefFound = FALSE; 
 
-        for (int j = 0; j < remainingCandidates;j++) {
-            if (votingPool[j].eliminated) {
-                continue;
-            }
+        for (int j = 0; j < stat.remainingCandidates;j++) {
             // Within this particular ballot,
             // if there is a candidate with a higher preference
             // than the eliminated candidate,
@@ -395,6 +395,14 @@ void redistributeVotes(candidate_t votingPool[], int remainingCandidates,
             votingPool[incrementIndex].firstPrefCount++;
         }
     }
+}
+// Reset the elimination status and firstPrefCount
+void reset(candidate_t votingPool[], pollStatus_t *stat) {
+    for (int i = 0; i < stat->totalCandidates; i++) {
+        votingPool[i].firstPrefCount = votingPool[i].originalCount;
+        votingPool[i].eliminated = FALSE;
+    }
+    stat->remainingCandidates = stat->totalCandidates;
 }
 
 // algorithms are fun :)
