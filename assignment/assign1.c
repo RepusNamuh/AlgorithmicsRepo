@@ -87,7 +87,9 @@ void statusPrintOut(candidate_t votingPool[], int elimIndex, int *elected,
                     int *winner, pollStatus_t stat);
 
 void insertionSort(candidate_t votingPool[], int noCandidates);
+
 void shiftLeft(candidate_t votingPool[], int start, int *end);
+
 void reset(candidate_t votingPool[], pollStatus_t *stat);
 ///////////////////////////////////////////////////////////////////////
 
@@ -299,6 +301,7 @@ int elimination(candidate_t votingPool[], pollStatus_t stat, int *winner) {
             minVotes = votingPool[candidate].firstPrefCount;
             elimIndex = candidate;
         }
+        // Greater than minVotes doesn't necessarily mean greater than maxVotes
         if (votingPool[candidate].firstPrefCount > maxVotes) {
             maxVotes = votingPool[candidate].firstPrefCount;
             potentialWinner = candidate;
@@ -330,7 +333,7 @@ void statusPrintOut(candidate_t votingPool[], int elimIndex,
     printf("    ----\n");
 
     // Winner declared if they have more than 50% of the votes
-    // before elimination process
+    // After the last round of redistrubtution.
     if (*winner != NOTFOUND) {
 
         printf("    %s is declared elected\n", 
@@ -354,13 +357,12 @@ void redistributeVotes(candidate_t votingPool[], pollStatus_t stat) {
     // e.g, after second round of elimination,
     // all third preferences and below, from all ballots need to 
     // move into the remaining candidates
-    int highestPreft = 
-        stat.totalCandidates - stat.remainingCandidates + FIRSTPREF;
+    int highestPref = stat.totalCandidates - stat.remainingCandidates;
 
     for (int i = 0; i < stat.totalVotes; i++) {
         int pref = votingPool[stat.remainingCandidates].votes[i];
         // Lower preference than require for redistribution
-        if (pref > highestPreft) { 
+        if (pref > highestPref) { 
             continue;
         }
 
@@ -378,14 +380,14 @@ void redistributeVotes(candidate_t votingPool[], pollStatus_t stat) {
             // if there is a candidate with a higher preference
             // than the eliminated candidate,
             // then no redistribution is needed.
-            int currentPreft = votingPool[j].votes[i];
-            if (currentPreft < pref) {
+            int currentPref = votingPool[j].votes[i];
+            if (currentPref < pref) {
                 lowerPrefFound = TRUE;
                 break;
             }
 
-            if (currentPreft < lowestPref) {
-                lowestPref = votingPool[j].votes[i];
+            if (currentPref < lowestPref) {
+                lowestPref = currentPref;
                 incrementIndex = j;
             }
         }
