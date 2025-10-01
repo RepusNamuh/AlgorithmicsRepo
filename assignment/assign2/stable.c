@@ -110,7 +110,7 @@ int colcmp(const void *a, const void *b);
 void firstsort(CSRMatrix_t *A);
 
 // Insertion function set
-int binarySearch(cell_t *array, int size, int target, int *ist);
+int binarySearch(row_t *arrInfo, int target, int *ist);
 void append(row_t *array, int location, int row, int col);
 int move(row_t *array, int from, int to);
 void null_check(CSRMatrix_t *A, int index);
@@ -302,16 +302,17 @@ void get_matrix(CSRMatrix_t *A) {
 }
 // Searching for both exact match and insertion point 
 // *ist is the point of insertion, can be pass as NULL
-int binarySearch(cell_t *array, int size, int target, int *ist) {
+int binarySearch(row_t* arrInfo, int target, int *ist) {
+    if (arrInfo->row == NULL) return NOTFOUND;
     int left = 0;
-    int right = size - 1;
-    while (left <= right && array != NULL) {
+    int right = arrInfo->nElements - 1;
+    while (left <= right && arrInfo->row != NULL) {
         int mid = (right + left) / 2;
-        if (array[mid].col == target) {
+        if (arrInfo->row[mid].col == target) {
             if (ist) *ist = mid;
             return mid;
         }
-        else if (array[mid].col < target) {
+        else if (arrInfo->row[mid].col < target) {
             left = mid + 1;
         } 
         else {
@@ -436,8 +437,7 @@ search_t getOrApend(CSRMatrix_t *A, int rowval, int colval) {
     row_t *arrInfo = A->rptr[rowval];
     search_t res;
 
-    int pos = binarySearch(arrInfo->row, arrInfo->nElements, 
-                                                colval, NULL);
+    int pos = binarySearch(arrInfo, colval, NULL);
     if (pos != NOTFOUND) {
         // We found the cell; 
         res.foundAt = res.appendAt = pos;
@@ -543,7 +543,7 @@ void copy_col(CSRMatrix_t*A, changeInfo_t *info) {
         info->r1 = i;
 
         if (row) {
-            i1 = binarySearch(row->row, row->nElements, info->c2, NULL);
+            i1 = binarySearch(row, info->c2, NULL);
             info->val = (i1 != NOTFOUND)? row->row[i1].val : EMPTY;
             set_cell(A, info);
         }
@@ -671,8 +671,7 @@ int compareMatrix(CSRMatrix_t *A, CSRMatrix_t *B) {
             }
         }
         for (int j = 0; j < rowB->nElements; j++) {
-            int index = binarySearch(rowA->row, 
-                    rowA->nElements, rowB->row[j].col, NULL);
+            int index = binarySearch(rowA, rowB->row[j].col, NULL);
             if (index == NOTFOUND) {
                 //printf("I Failed at row %d col %d with index = %d\n", i, rowB->row[j].col, index);
                 return FALSE;  // column in rowB not found in rowA
