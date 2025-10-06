@@ -112,8 +112,8 @@ void null_check(CSRMatrix_t *A, int index);
 int getOrInsert(CSRMatrix_t *A, int rowval, int colval, int *index);
 
 // Printing functions
-void printProperRow(row_t *row, int end);
-void printCoordinate(row_t *array, int row);
+void printRowForm(row_t *row, int end);
+void printCoordinateForm(row_t *array, int row);
 void printMatrix(CSRMatrix_t *A);
 void printHeader(CSRMatrix_t *A, const char *label);
 void matrixStatus(CSRMatrix_t *A, char *type);
@@ -121,19 +121,19 @@ void matrixStatus(CSRMatrix_t *A, char *type);
 // Change functions
 void nonZeroCount(int prev, int curr, double *count);
 void set_cell(CSRMatrix_t *A, changeInfo_t *info);
-void swap(int *a, int *b);
+void swap_int(int *a, int *b);
 void swap_cell(CSRMatrix_t *A, changeInfo_t *info);
 void add_or_multi(CSRMatrix_t *A, changeInfo_t *info);
 void copy_row(CSRMatrix_t *A, changeInfo_t *info);
 void swap_row(CSRMatrix_t *A, changeInfo_t *info);
 void swap_col(CSRMatrix_t *A, changeInfo_t *info);
 void copy_col(CSRMatrix_t *A, changeInfo_t *info);
-change_t* assignChange();
+change_t* linkCommandWithFunc();
 
 // Main set of functions for each stage
-void stage0(CSRMatrix_t *A, CSRMatrix_t *B);
-int stage1Change(char command);
-void changeReader(CSRMatrix_t *A,CSRMatrix_t *B, int stage, 
+void printInitialStat(CSRMatrix_t *A, CSRMatrix_t *B);
+int stageOneCommand(char command);
+void commandReader(CSRMatrix_t *A,CSRMatrix_t *B, int stage, 
                                 int *count, change_t *changes);
 int compareMatrix(CSRMatrix_t *A, CSRMatrix_t *B);
 void remove_zero(row_t *row, int idx);
@@ -156,16 +156,22 @@ int main(int argc, char *argv[]) {
     get_matrix(inputMatrix); // read initial matrix
     get_matrix(targetMatrix); // read target matrix
 
-    stage0(inputMatrix, targetMatrix);
-    change_t *changes = assignChange();
+    printInitialStat(inputMatrix, targetMatrix);
+    change_t *changes = linkCommandWithFunc();
 
     printf(SDELIM, stage); // print Stage 1 header
     clearGarbageInput();
-    changeReader(inputMatrix, targetMatrix, stage++, &count, changes);
+    count = compareMatrix(inputMatrix, targetMatrix);
+    if (count) { // if the input and target are already the same
+        theEnd(&count); 
+    }
+    else {
+        commandReader(inputMatrix, targetMatrix, stage++, &count, changes);
+    }
 
+    printf(SDELIM, stage); // print Stage 2 header
     if (count != NOTFOUND) {// only if not solved in stage 1
-        printf(SDELIM, stage); // print Stage 2 header
-        changeReader(inputMatrix, targetMatrix, stage++, &count, changes);
+        commandReader(inputMatrix, targetMatrix, stage++, &count, changes);
     }
 
     printf(THEEND); // print "THE END" message
@@ -317,7 +323,7 @@ void insert(row_t *array, int location, int row, int col) {
     array->nElements++;
 }
 
-void printProperRow(row_t *array, int end) {
+void printRowForm(row_t *array, int end) {
     int start = 0;
 
     printf("[");
@@ -328,21 +334,17 @@ void printProperRow(row_t *array, int end) {
 
             // Skipping zero values
             if (val != EMPTY) {
-                // Print spaces from the last seen
+                // Print spaces from the last non-zero
                 printf("%*s%d", col - start, "", val);
                 start = col + 1;
             }
         }
     }
     // print remaining spaces till the end of the row
-    printf("%*s]", end - start, "");
-    if (array != NULL)
-    printf("%d\n", array->nElements);
-    else
-    printf("\n");
+    printf("%*s]\n", end - start, "");
 }
 
-void printCoordinate(row_t *array, int row) {
+void printCoordinateForm(row_t *array, int row) {
     if (array == NULL) return;
     for (int i = 0; i < array->nElements; i++) {
         int col = array->row[i].col;
@@ -360,6 +362,7 @@ void printCoordinate(row_t *array, int row) {
 void firstsort(CSRMatrix_t *A) {
     for (int i = 0; i < A->rows; i++) {
         row_t *arrInfo = A->rptr[i];
+
         if (arrInfo != NULL) {
             qsort(arrInfo->row, arrInfo->nElements, 
                                     sizeof(cell_t), colcmp);
@@ -369,10 +372,13 @@ void firstsort(CSRMatrix_t *A) {
 void printMatrix(CSRMatrix_t *A) {
     for (int i = 0; i < A->rows; i++) {
         row_t *arrInfo = A->rptr[i];
+
+        // If matrix is too big or not in range.
         if (A->cols > PRINTABLE || A->rows > PRINTABLE || A->notMatrix) {
-            printCoordinate(arrInfo, i);
-        } else {
-            printProperRow(arrInfo, A->cols);
+            printCoordinateForm(arrInfo, i);
+        } 
+        else {
+            printRowForm(arrInfo, A->cols);
         }
     }
 }
@@ -411,7 +417,7 @@ int getOrInsert(CSRMatrix_t *A, int rowval, int colval, int *index) {
     return TRUE;
 }
 
-void swap(int*a, int *b) {
+void swap_int(int*a, int *b) {
     int temp = *a;
     *a = *b;
     *b = temp;
@@ -423,30 +429,28 @@ void swap_cell(CSRMatrix_t *A, changeInfo_t *info) {
         
     // Get the cell with the target column, insert if not found
     // It can be that we are swapping cell with 0 value,
-    // however since our data structure only store non-zero values,
-    // we might need to insert new cell into the row.
     int i1 = NOTFOUND, i2 = NOTFOUND;
     getOrInsert(A, info->r1, info->c1, &i1);
     int inserted = getOrInsert(A, info->r2, info->c2, &i2);
 
     // If we inserted a new cell into row1=row2, and i1 > i2,
-    if (inserted && i1 > i2 && info->r1 == info->r2) i1++;
+    if (inserted && i1 >= i2 && info->r1 == info->r2) i1++;
 
     row_t *arrInfo1 = A->rptr[info->r1];
     row_t *arrInfo2 = A->rptr[info->r2];
     
 
-    swap(&arrInfo1->row[i1].val, &arrInfo2->row[i2].val);
+    swap_int(&arrInfo1->row[i1].val, &arrInfo2->row[i2].val);
 }
 
 void set_cell(CSRMatrix_t *A, changeInfo_t *info) {
     if (info->val == 0 && A->rptr[info->r1] == NULL) return;
 
     int index = NOTFOUND;
-    getOrInsert(A, info->r1, info->c1, &index);
-
+    
     // If the row is NULL, we need to create it first
     // Get the cell with the target column, insert if not found
+    getOrInsert(A, info->r1, info->c1, &index);
 
     A->rptr[info->r1]->row[index].val = info->val;
 }
@@ -458,7 +462,7 @@ void add_or_multi(CSRMatrix_t *A, changeInfo_t *info) {
 
         for (int j = 0; j < arrInfo->nElements; j++) {
             int*curr = &arrInfo->row[j].val;
-
+            // We don't add if empty or command is m.
             if (info->add && *curr != EMPTY) {
                 *curr += info->val;
             } else {
@@ -506,21 +510,25 @@ void swap_col(CSRMatrix_t *A, changeInfo_t *info) {
 
 void copy_col(CSRMatrix_t*A, changeInfo_t *info) {
     // src and target is c1 and c2, swap them for set_cell manipulation
-    swap(&info->c1, &info->c2);
+    swap_int(&info->c1, &info->c2);
+
     for (int i = 0; i < A->rows; i++) {
         row_t *row = A->rptr[i];
         int i1 = NOTFOUND;
         info->r1 = i;
 
+        // If row exist, search for the source cell,
         if (row) {
+            // which is at c2, if cell is found, set the 
             i1 = binarySearch(row->row, row->nElements, info->c2, NULL);
             info->val = (i1 != NOTFOUND)? row->row[i1].val : EMPTY;
-
+            
+            // value of that cell to c1 otherwise set c1 cell to 0.
             set_cell(A, info);
         }
     }
 }
-void stage0(CSRMatrix_t *A, CSRMatrix_t *B) {
+void printInitialStat(CSRMatrix_t *A, CSRMatrix_t *B) {
     firstsort(A);
     firstsort(B);
     matrixStatus(A, INIT); // print initial matrix
@@ -531,13 +539,13 @@ void stage0(CSRMatrix_t *A, CSRMatrix_t *B) {
 }
 
 // Check if the command is valid for stage 1
-int stage1Change(char cmd) {
+int stageOneCommand(char cmd) {
     return (cmd == 's' || cmd == 'S' || cmd == 'm' || cmd == 'a');
 }
 
 // Creating an array of change format and 
 // function pointer for each command
-change_t *assignChange() {
+change_t *linkCommandWithFunc() {
     change_t *table = (change_t*)calloc(ASCII_SIZE, sizeof(change_t));
     assert(table != NULL);
 
@@ -583,14 +591,14 @@ void scanPrintInstruction(char *changeForm, char command, changeInfo_t *info) {
 //Scanf the changeform base on the command.
 //Call the function pointer to perform the change.
 // Print out the matrix after manipulation.
-void changeReader(CSRMatrix_t *A, CSRMatrix_t *B, int stage, 
+void commandReader(CSRMatrix_t *A, CSRMatrix_t *B, int stage, 
                                 int *count, change_t *changes) {
     char command;
     changeInfo_t info;
 
     while (scanf("%c", &command) == 1) {
 
-        if (stage == 1 && !stage1Change(command)) {
+        if (stage == 1 && !stageOneCommand(command)) {
             ungetc(command, stdin);
             break;
         }
@@ -605,11 +613,13 @@ void changeReader(CSRMatrix_t *A, CSRMatrix_t *B, int stage,
         scanPrintInstruction(changeForm, command, &info);
 
         func(A, &info);
-
+        // Bulk check of out of bound value in Matrix
         notMatrix_check(A);
         matrixStatus(A, CURR);
         matrixStatus(B, TARGET);
         (*count)++;
+
+        // Check if we have reached the target matrix
         if (compareMatrix(A, B)) {
             theEnd(count);
             *count = NOTFOUND;
@@ -634,6 +644,7 @@ int compareMatrix(CSRMatrix_t *A, CSRMatrix_t *B) {
         
         if (rowA == NULL && rowB == NULL) continue;
         if (rowA == NULL && rowB != NULL) return FALSE;
+
         // Row B is empty mean rowA must also be empty
         if (rowB == NULL) {
             for (int j = 0; j < rowA->nElements; j++) {
@@ -642,7 +653,7 @@ int compareMatrix(CSRMatrix_t *A, CSRMatrix_t *B) {
                 }
             }
         }
-
+        // Search through each cell in rowB and find it in rowA
         for (int j = 0; j < rowB->nElements; j++) {
             int index = binarySearch(rowA->row, 
                     rowA->nElements, rowB->row[j].col, NULL);
@@ -662,6 +673,11 @@ void remove_zero(row_t *row, int idx) {
             sizeof(cell_t) * (row->nElements - idx - 1));
     row->nElements--;
 }
+
+// I could have done this per command, It will be more efficient.
+// But this is way more convienient and straight forward since
+// we don't really care about run-time efficiency that much
+// and Artem said 700~800 lines is too much already.
 void notMatrix_check(CSRMatrix_t *A) {
     A->nnz = 0;
     A->notMatrix = FALSE;

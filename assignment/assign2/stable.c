@@ -454,10 +454,6 @@ void swap(int*a, int *b) {
     *a = *b;
     *b = temp;
 }
-// Swap the cell at (r1, c1) with cell at (r2, c2)
-void swap_cell(CSRMatrix_t *A, changeInfo_t *info) {
-    // Write this again.
-}
 // Set the cell at (r1,c1) to value val
 void set_cell(CSRMatrix_t *A, changeInfo_t *info) {
     if (info->val == 0 && A->rptr[info->r1] == NULL) return;
@@ -474,6 +470,30 @@ void set_cell(CSRMatrix_t *A, changeInfo_t *info) {
     notMatrix(prev, info->val, &A->notMatrix, &arrInfo->nonMatrix);  
     nonZeroCount(prev, info->val, &A->nnz, &arrInfo->nnz);
     move(arrInfo, res.appendAt, inpos);
+}
+
+static void mid_swap(changeInfo_t *info, CSRMatrix_t *A, int idx) {
+    info->val = A->rptr[info->r2]->row[idx].val;
+    set_cell(A, info);
+    A->rptr[info->r2]->row[idx].val = EMPTY;
+    remove_zero(A->rptr[info->r2], idx);
+}
+// Swap the cell at (r1, c1) with cell at (r2, c2)
+void swap_cell(CSRMatrix_t *A, changeInfo_t *info) {
+    int i1 = binarySearch(A->rptr[info->r1], info->c1, NULL);
+    int i2 = binarySearch(A->rptr[info->r2], info->c2, NULL);
+    if (i1 == NOTFOUND && i2 == NOTFOUND) return; // both empty, do nothing
+    if (i1 == NOTFOUND) {
+       mid_swap(info, A, i2);
+    }
+    else if (i2 == NOTFOUND) {
+        swap(&info->r1, &info->r2);
+        swap(&info->c1, &info->c2);
+        mid_swap(info, A, i1);
+    } else {
+        swap(&A->rptr[info->r1]->row[i1].val, 
+            &A->rptr[info->r2]->row[i2].val);
+    }
 }
 
 void add_or_multi(CSRMatrix_t *A, changeInfo_t *info) {
