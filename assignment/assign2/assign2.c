@@ -232,7 +232,6 @@ row_t* create_arrayInfo(int occupied, int size) {
 }
 
 void upSize(row_t *array, int new_size) {
-    
     cell_t *new = (cell_t*)realloc(array->row, sizeof(cell_t) * new_size);
     assert(new != NULL);
     
@@ -272,6 +271,7 @@ void get_matrix(CSRMatrix_t *A) {
 
     while (scanf("%d,%d,%d", &row, &col, &val) == 3) {
         if (val == EMPTY) continue; 
+
         null_check(A, row);  // create row if it does not exist
         arrInfo = A->rptr[row];
 
@@ -393,6 +393,7 @@ void matrixStatus(CSRMatrix_t *A, char *type) {
     printMatrix(A);
 }
 
+// Checking if the row_t pointer is NULL
 void null_check(CSRMatrix_t *A, int index) {
     if (A->rptr[index] == NULL) {
         A->rptr[index] = create_arrayInfo(EMPTY, INIT_SIZE);
@@ -404,6 +405,7 @@ int getOrInsert(CSRMatrix_t *A, int rowval, int colval, int *index) {
     row_t *arrInfo = A->rptr[rowval];
 
     int insertPos;
+    // We either find an exact cell or it is NOTFOUND.
     int pos = binarySearch(arrInfo->row, arrInfo->nElements, 
                                                 colval, &insertPos);
     if (pos != NOTFOUND) {
@@ -411,7 +413,7 @@ int getOrInsert(CSRMatrix_t *A, int rowval, int colval, int *index) {
         *index = pos;
         return FALSE;
     }
-
+    // We did not find the cell, but insert index so we insert.
     insert(arrInfo, insertPos, rowval, colval);
     *index = insertPos;
     return TRUE;
@@ -422,6 +424,7 @@ void swap_int(int*a, int *b) {
     *a = *b;
     *b = temp;
 }
+
 void swap_cell(CSRMatrix_t *A, changeInfo_t *info) {
     // if both rows are NULL, nothing to swap
     if (A->rptr[info->r1] == NULL 
@@ -448,8 +451,7 @@ void set_cell(CSRMatrix_t *A, changeInfo_t *info) {
 
     int index = NOTFOUND;
     
-    // If the row is NULL, we need to create it first
-    // Get the cell with the target column, insert if not found
+    // Get the cell with target col, insert if not found
     getOrInsert(A, info->r1, info->c1, &index);
 
     A->rptr[info->r1]->row[index].val = info->val;
@@ -462,7 +464,7 @@ void add_or_multi(CSRMatrix_t *A, changeInfo_t *info) {
 
         for (int j = 0; j < arrInfo->nElements; j++) {
             int*curr = &arrInfo->row[j].val;
-            // We don't add if empty or command is m.
+            // We don't add if empty or if command is m.
             if (info->add && *curr != EMPTY) {
                 *curr += info->val;
             } else {
@@ -492,10 +494,11 @@ void copy_row(CSRMatrix_t *A, changeInfo_t *info) {
         A->rptr[info->r2] = NULL;
         return;
     }
-    // Create a new row_t with everything except value in row
+    // Create a new row_t with everything except values in row
     target = create_arrayInfo(src->nElements, src->row_size);
     // Copy everything from src to target
     memcpy(target->row, src->row, sizeof(cell_t) * src->nElements);
+
     A->rptr[info->r2] = target;
 } 
 
@@ -560,7 +563,7 @@ change_t *linkCommandWithFunc() {
 
     return table;
 }
-
+// A function that scan and print base on the command given.
 void scanPrintInstruction(char *changeForm, char command, changeInfo_t *info) {
     printf("INSTRUCTION %c", command);
     if (command == 's') {
@@ -586,8 +589,8 @@ void scanPrintInstruction(char *changeForm, char command, changeInfo_t *info) {
 }
 
 // A function that perform both stage 1 and 2.
-//~~Read the command. IF we are still in STAGE1 and 
-//~~command is of STAGE2, break the current reading.
+//Read the command. IF we are still in STAGE1 and 
+//command is of STAGE2, break the current reading.
 //Scanf the changeform base on the command.
 //Call the function pointer to perform the change.
 // Print out the matrix after manipulation.
@@ -615,6 +618,7 @@ void commandReader(CSRMatrix_t *A, CSRMatrix_t *B, int stage,
         func(A, &info);
         // Bulk check of out of bound value in Matrix
         notMatrix_check(A);
+
         matrixStatus(A, CURR);
         matrixStatus(B, TARGET);
         (*count)++;
@@ -654,6 +658,9 @@ int compareMatrix(CSRMatrix_t *A, CSRMatrix_t *B) {
             }
         }
         // Search through each cell in rowB and find it in rowA
+        // There might be cell in A that is not in B, but that doesn't 
+        // matter, since there will be a row that have less cell in A than B
+        // guarantee by A->nnz = B->nnz
         for (int j = 0; j < rowB->nElements; j++) {
             int index = binarySearch(rowA->row, 
                     rowA->nElements, rowB->row[j].col, NULL);
@@ -669,6 +676,7 @@ int compareMatrix(CSRMatrix_t *A, CSRMatrix_t *B) {
 }
 
 void remove_zero(row_t *row, int idx) {
+    // Shift the memory to the left.
     memmove(&row->row[idx], &row->row[idx + 1], 
             sizeof(cell_t) * (row->nElements - idx - 1));
     row->nElements--;
