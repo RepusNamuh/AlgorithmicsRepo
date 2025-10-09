@@ -71,7 +71,8 @@ typedef struct {
     int rows;       // number of rows in this matrix
     int cols;       // number of columns in this matrix
     int notMatrix;  // flag for printing matix or list
-    double nnz;     // number of stored non-zeros values in this matrix
+    int nnz;     // number of stored non-zeros values in this matrix
+    int ended;      // flag for ended program
     row_t** rptr;   // row pointers
 } CSRMatrix_t;
 
@@ -159,21 +160,15 @@ int main(int argc, char *argv[]) {
     printInitialStat(inputMatrix, targetMatrix);
     change_t *changes = linkCommandWithFunc();
 
-    printf(SDELIM, stage); // print Stage 1 header
     clearGarbageInput();
-    count = compareMatrix(inputMatrix, targetMatrix);
-    if (count) { // if the input and target are already the same
-        theEnd(&count); 
-    }
-    else {
+    inputMatrix->ended = compareMatrix(inputMatrix, targetMatrix);
+
+    while (!inputMatrix->ended) {
+        printf(SDELIM, stage); // print Stage header
         commandReader(inputMatrix, targetMatrix, stage++, &count, changes);
     }
-
-    printf(SDELIM, stage); // print Stage 2 header
-    if (count != NOTFOUND) {// only if not solved in stage 1
-        commandReader(inputMatrix, targetMatrix, stage++, &count, changes);
-    }
-
+    
+    theEnd(&count); 
     printf(THEEND); // print "THE END" message
 
     csr_matrix_free(inputMatrix); // free initial matrix
@@ -193,7 +188,7 @@ CSRMatrix_t *csr_matrix_create(int nrows, int ncols) {
     A->rows = nrows; // set number of rows in the matrix
     A->cols = ncols; // set number of columns in the matrix
     A->nnz = 0; // initialize with no non-zero values
-    A->notMatrix = FALSE;
+    A->notMatrix = A->ended = FALSE;
     // allocate array to store row pointers
     A->rptr = (row_t**)malloc((size_t)(A->rows+1)*sizeof(row_t*));
     assert(A->rptr!=NULL);
@@ -384,7 +379,7 @@ void printMatrix(CSRMatrix_t *A) {
 }
 
 void printHeader(CSRMatrix_t *A, const char *label) {
-    printf("%s matrix: %dx%d, nnz=%.0lf\n", label, 
+    printf("%s matrix: %dx%d, nnz=%.d\n", label, 
                                 A->rows, A->cols, A->nnz);
 }
 
@@ -625,8 +620,7 @@ void commandReader(CSRMatrix_t *A, CSRMatrix_t *B, int stage,
 
         // Check if we have reached the target matrix
         if (compareMatrix(A, B)) {
-            theEnd(count);
-            *count = NOTFOUND;
+            A->ended = TRUE;
             break;
         }
     }
@@ -637,6 +631,7 @@ void theEnd(int *count) {
     printf("TA-DAA!!! SOLVED IN %d STEP(S)!\n", *count);
 }
 
+// Return TRUE if A and B are the same matrix
 int compareMatrix(CSRMatrix_t *A, CSRMatrix_t *B) {
     if (A->nnz != B->nnz) {
         return FALSE;
