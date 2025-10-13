@@ -103,9 +103,6 @@ void clearGarbageInput();
 void get_matrix(CSRMatrix_t *A);
 void scanPrintInstruction(char *changeForm, char command, changeInfo_t *info);
 
-int colcmp(const void *a, const void *b);
-void firstsort(CSRMatrix_t *A);
-
 // Insertion function set
 int binarySearch(cell_t *array, int size, int target, int *ist);
 void insert(row_t *array, int location, int row, int col);
@@ -157,10 +154,14 @@ int main(int argc, char *argv[]) {
     get_matrix(inputMatrix); // read initial matrix
     get_matrix(targetMatrix); // read target matrix
 
+    notMatrix_check(inputMatrix);  // bulk check of out of bound value
+    notMatrix_check(targetMatrix);
+
     printInitialStat(inputMatrix, targetMatrix);
     change_t *changes = linkCommandWithFunc();
 
     clearGarbageInput();
+    // Early termination check
     inputMatrix->ended = compareMatrix(inputMatrix, targetMatrix);
 
     while (!inputMatrix->ended) {
@@ -187,7 +188,7 @@ CSRMatrix_t *csr_matrix_create(int nrows, int ncols) {
     assert(A!=NULL); // check if memory was allocated
     A->rows = nrows; // set number of rows in the matrix
     A->cols = ncols; // set number of columns in the matrix
-    A->nnz = 0; // initialize with no non-zero values
+    A->nnz = EMPTY; // initialize with no non-zero values
     A->notMatrix = A->ended = FALSE;
     // allocate array to store row pointers
     A->rptr = (row_t**)malloc((size_t)(A->rows+1)*sizeof(row_t*));
@@ -197,7 +198,11 @@ CSRMatrix_t *csr_matrix_create(int nrows, int ncols) {
     }
     return A;
 }
-// Free input CSR matrix A
+
+/****************************************************************************/
+/************** MEMORY ALLOCATIONS AND FREEING FUNCTIONS********************/
+/****************************************************************************/
+
 void csr_matrix_free(CSRMatrix_t *A) {
     assert(A!=NULL);
     for (int i = 0; i <= A->rows; i++) {
@@ -212,7 +217,6 @@ void free_arrayInfo(row_t *array) {
     free(array->row);
     free(array);
 }
-
 // Generate an empty list
 row_t* create_arrayInfo(int occupied, int size) {
     row_t *list = (row_t*)malloc(sizeof(row_t));
@@ -238,49 +242,26 @@ void make_cell(cell_t * cell, int col, int val) {
     cell->col = col, cell->val = val;
 }
 
-// A comparison function for first sort.
-int colcmp(const void *a, const void *b) {
-    cell_t *cellA = (cell_t*)a;
-    cell_t *cellB = (cell_t*)b;
+void remove_zero(row_t *row, int idx) {
+    // Shift the memory to the left.
+    memmove(&row->row[idx], &row->row[idx + 1], 
+            sizeof(cell_t) * (row->nElements - idx - 1));
+    row->nElements--;
+}
 
-    if (cellA->col < cellB->col) {
-        return -1;
-    } else {
-        return (cellA->col > cellB->col);
+// Checking if the row_t pointer is NULL
+void null_check(CSRMatrix_t *A, int index) {
+    if (A->rptr[index] == NULL) {
+        A->rptr[index] = create_arrayInfo(EMPTY, INIT_SIZE);
     }
 }
 
-void clearGarbageInput() {
-    int c;
-    while ((c = getchar()) != EOF && 
-           !((c >= '0' && c <= '9') || c == '-' || isalpha(c))) {
-        // Skip non-digit characters and non-minus characters
-    }
-    ungetc(c, stdin);
-}
 
-void get_matrix(CSRMatrix_t *A) {
-    int val, row, col;
-    row_t *arrInfo = NULL;
-    clearGarbageInput();
+/****************************************************************************/
+/*************************SEARCHING AND INSERTIONS***************************/
+/****************************************************************************/
 
-    while (scanf("%d,%d,%d", &row, &col, &val) == 3) {
-        if (val == EMPTY) continue; 
 
-        null_check(A, row);  // create row if it does not exist
-        arrInfo = A->rptr[row];
-
-        int *index = &arrInfo->nElements;
-        if (*index > arrInfo->row_size-1){
-            upSize(arrInfo, *index * 2);  // increase size if bottleneck
-        }
-        make_cell(&arrInfo->row[(*index)++], col, val);
-
-        A->nnz++;
-        
-        A->notMatrix = (val < EMPTY || val > MAXDIGIT);
-    }
-}
 // Searching for both exact match and insertion point 
 // *ist is the point of insertion, can be pass as NULL
 int binarySearch(cell_t *array, int size, int target, int *ist) {
@@ -318,6 +299,97 @@ void insert(row_t *array, int location, int row, int col) {
     array->nElements++;
 }
 
+int getOrInsert(CSRMatrix_t *A, int rowval, int colval, int *index) {
+    null_check(A, rowval);
+    row_t *arrInfo = A->rptr[rowval];
+
+    int insertPos;
+    // We either find an exact cell or it is NOTFOUND.
+    int pos = binarySearch(arrInfo->row, arrInfo->nElements, 
+                                                colval, &insertPos);
+    if (pos != NOTFOUND) {
+        // We found the cell; 
+        *index = pos;
+        return FALSE;
+    }
+    // We did not find the cell but insert index, so we insert.
+    insert(arrInfo, insertPos, rowval, colval);
+    *index = insertPos;
+    return TRUE;
+}
+
+/************************************************************************/
+/**************************READER FUNCTIONS******************************/
+/************************************************************************/
+
+void clearGarbageInput() {
+    int ch;
+    while ((ch = getchar()) != '\n' && ch != EOF);
+}
+
+void get_matrix(CSRMatrix_t *A) {
+    int val, row, col;
+    row_t *arrInfo = NULL;
+    clearGarbageInput();
+
+    while (scanf("%d,%d,%d", &row, &col, &val) == 3) {
+
+        null_check(A, row);  // create row if it does not exist
+        arrInfo = A->rptr[row];
+
+        int index = NOTFOUND;
+        getOrInsert(A, row, col, &index);
+        make_cell(&arrInfo->row[index], col, val);
+    }
+}
+
+// Creating an array of change format and 
+// function pointer for each command
+change_t *linkCommandWithFunc() {
+    change_t *table = (change_t*)calloc(ASCII_SIZE, sizeof(change_t));
+    assert(table != NULL);
+
+    table['s'].format = ":%d,%d,%d\n";    table['s'].func = set_cell;
+    table['S'].format = ":%d,%d,%d,%d\n"; table['S'].func = swap_cell;
+    table['m'].format = ":%d\n";          table['m'].func = add_or_multi;
+    table['a'].format = ":%d\n";          table['a'].func = add_or_multi;
+    table['R'].format = ":%d,%d\n";       table['R'].func = swap_row;
+    table['C'].format = ":%d,%d\n";       table['C'].func = swap_col;
+    table['r'].format = ":%d,%d\n";       table['r'].func = copy_row;
+    table['c'].format = ":%d,%d\n";       table['c'].func = copy_col;
+
+    return table;
+}
+
+// A function that scan and print base on the command given.
+void scanPrintInstruction(char *changeForm, char command, changeInfo_t *info) {
+    printf("INSTRUCTION %c", command);
+    if (command == 's') {
+        scanf(changeForm, &info->r1, &info->c1, &info->val);
+        printf(changeForm, info->r1, info->c1, info->val);
+    }
+    else if (command == 'S') {
+        scanf(changeForm, &info->r1, &info->c1, &info->r2, &info->c2);
+        printf(changeForm, info->r1, info->c1, info->r2, info->c2);
+    }
+    else if (command == 'm' || command == 'a') {
+        scanf(changeForm, &info->val);
+        printf(changeForm, info->val);
+    }
+    else if (command == 'R' || command == 'r' ) {
+        scanf(changeForm, &info->r1, &info->r2);
+        printf(changeForm, info->r1, info->r2);
+    }
+    else {
+        scanf(changeForm, &info->c1, &info->c2);
+        printf(changeForm, info->c1, info->c2);
+    }
+}
+
+
+/****************************************************************************/
+/************************** PRINTING FUNCTIONS ******************************/
+/****************************************************************************/
 void printRowForm(row_t *array, int end) {
     int start = 0;
 
@@ -352,18 +424,6 @@ void printCoordinateForm(row_t *array, int row) {
     }
 }
 
-// Because we read the matrix in aribitray order.
-// we need to first sort the element in each row.
-void firstsort(CSRMatrix_t *A) {
-    for (int i = 0; i < A->rows; i++) {
-        row_t *arrInfo = A->rptr[i];
-
-        if (arrInfo != NULL) {
-            qsort(arrInfo->row, arrInfo->nElements, 
-                                    sizeof(cell_t), colcmp);
-        }
-    }
-}
 void printMatrix(CSRMatrix_t *A) {
     for (int i = 0; i < A->rows; i++) {
         row_t *arrInfo = A->rptr[i];
@@ -379,7 +439,7 @@ void printMatrix(CSRMatrix_t *A) {
 }
 
 void printHeader(CSRMatrix_t *A, const char *label) {
-    printf("%s matrix: %dx%d, nnz=%.d\n", label, 
+    printf("%s matrix: %dx%d, nnz=%d\n", label, 
                                 A->rows, A->cols, A->nnz);
 }
 
@@ -388,31 +448,11 @@ void matrixStatus(CSRMatrix_t *A, char *type) {
     printMatrix(A);
 }
 
-// Checking if the row_t pointer is NULL
-void null_check(CSRMatrix_t *A, int index) {
-    if (A->rptr[index] == NULL) {
-        A->rptr[index] = create_arrayInfo(EMPTY, INIT_SIZE);
-    }
-}
 
-int getOrInsert(CSRMatrix_t *A, int rowval, int colval, int *index) {
-    null_check(A, rowval);
-    row_t *arrInfo = A->rptr[rowval];
+/****************************************************************************/
+/************************** CHANGE FUNCTIONS ********************************/
+/****************************************************************************/
 
-    int insertPos;
-    // We either find an exact cell or it is NOTFOUND.
-    int pos = binarySearch(arrInfo->row, arrInfo->nElements, 
-                                                colval, &insertPos);
-    if (pos != NOTFOUND) {
-        // We found the cell; 
-        *index = pos;
-        return FALSE;
-    }
-    // We did not find the cell, but insert index so we insert.
-    insert(arrInfo, insertPos, rowval, colval);
-    *index = insertPos;
-    return TRUE;
-}
 
 void swap_int(int*a, int *b) {
     int temp = *a;
@@ -469,10 +509,7 @@ void add_or_multi(CSRMatrix_t *A, changeInfo_t *info) {
     }
 }
 
-// Swap the rows as follow:
-// Get the pointer the each row under the matrix.
-// swap the pointer. that is A->rptr[a] and A->rptr[b]
-// Go through each of the row, and change the row value in each cell
+// Swap the row via pointer swapping
 void swap_row(CSRMatrix_t *A, changeInfo_t *info) {
     row_t *temp = A->rptr[info->r1];
     A->rptr[info->r1] = A->rptr[info->r2];
@@ -526,9 +563,14 @@ void copy_col(CSRMatrix_t*A, changeInfo_t *info) {
         }
     }
 }
+
+
+/************************************************************************/
+/*******************MAIN SET OF FUNCTIONS FOR EACH STAGE*****************/
+/************************************************************************/
+
+
 void printInitialStat(CSRMatrix_t *A, CSRMatrix_t *B) {
-    firstsort(A);
-    firstsort(B);
     matrixStatus(A, INIT); // print initial matrix
 
     printf("-------------------------------------\n");
@@ -539,48 +581,6 @@ void printInitialStat(CSRMatrix_t *A, CSRMatrix_t *B) {
 // Check if the command is valid for stage 1
 int stageOneCommand(char cmd) {
     return (cmd == 's' || cmd == 'S' || cmd == 'm' || cmd == 'a');
-}
-
-// Creating an array of change format and 
-// function pointer for each command
-change_t *linkCommandWithFunc() {
-    change_t *table = (change_t*)calloc(ASCII_SIZE, sizeof(change_t));
-    assert(table != NULL);
-
-    table['s'].format = ":%d,%d,%d\n";    table['s'].func = set_cell;
-    table['S'].format = ":%d,%d,%d,%d\n"; table['S'].func = swap_cell;
-    table['m'].format = ":%d\n";          table['m'].func = add_or_multi;
-    table['a'].format = ":%d\n";          table['a'].func = add_or_multi;
-    table['R'].format = ":%d,%d\n";       table['R'].func = swap_row;
-    table['C'].format = ":%d,%d\n";       table['C'].func = swap_col;
-    table['r'].format = ":%d,%d\n";       table['r'].func = copy_row;
-    table['c'].format = ":%d,%d\n";       table['c'].func = copy_col;
-
-    return table;
-}
-// A function that scan and print base on the command given.
-void scanPrintInstruction(char *changeForm, char command, changeInfo_t *info) {
-    printf("INSTRUCTION %c", command);
-    if (command == 's') {
-        scanf(changeForm, &info->r1, &info->c1, &info->val);
-        printf(changeForm, info->r1, info->c1, info->val);
-    }
-    else if (command == 'S') {
-        scanf(changeForm, &info->r1, &info->c1, &info->r2, &info->c2);
-        printf(changeForm, info->r1, info->c1, info->r2, info->c2);
-    }
-    else if (command == 'm' || command == 'a') {
-        scanf(changeForm, &info->val);
-        printf(changeForm, info->val);
-    }
-    else if (command == 'R' || command == 'r' ) {
-        scanf(changeForm, &info->r1, &info->r2);
-        printf(changeForm, info->r1, info->r2);
-    }
-    else {
-        scanf(changeForm, &info->c1, &info->c2);
-        printf(changeForm, info->c1, info->c2);
-    }
 }
 
 // A function that perform both stage 1 and 2.
@@ -645,12 +645,13 @@ int compareMatrix(CSRMatrix_t *A, CSRMatrix_t *B) {
         if (rowA == NULL && rowB != NULL) return FALSE;
 
         // Row B is empty mean rowA must also be empty
-        if (rowB == NULL) {
+        if (!rowB) {
             for (int j = 0; j < rowA->nElements; j++) {
                 if (rowA->row[j].val) {
                     return FALSE; // rowA has non-zero value
                 }
             }
+            continue;
         }
         // Search through each cell in rowB and find it in rowA
         // There might be cell in A that is not in B, but that doesn't 
@@ -668,13 +669,6 @@ int compareMatrix(CSRMatrix_t *A, CSRMatrix_t *B) {
         }
     }
     return TRUE;
-}
-
-void remove_zero(row_t *row, int idx) {
-    // Shift the memory to the left.
-    memmove(&row->row[idx], &row->row[idx + 1], 
-            sizeof(cell_t) * (row->nElements - idx - 1));
-    row->nElements--;
 }
 
 // I could have done this per command, It will be more efficient.
