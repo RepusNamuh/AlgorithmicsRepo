@@ -178,11 +178,15 @@ int main(int argc, char *argv[]) {
     return EXIT_SUCCESS; // algorithms are fun!!!
 }
 
+
+/****************************************************************************/
+/************** MEMORY ALLOCATIONS AND FREEING FUNCTIONS********************/
+/****************************************************************************/
+
 // Create an empty CSR matrix of nrows rows and ncols columns
 CSRMatrix_t *csr_matrix_create(int nrows, int ncols) {
     // allocate memory for this matrix
     assert(nrows >= 0 && ncols >= 0); // check matrix dimensions
-    
     
     CSRMatrix_t *A = (CSRMatrix_t*)malloc(sizeof(CSRMatrix_t));
     assert(A!=NULL); // check if memory was allocated
@@ -198,10 +202,6 @@ CSRMatrix_t *csr_matrix_create(int nrows, int ncols) {
     }
     return A;
 }
-
-/****************************************************************************/
-/************** MEMORY ALLOCATIONS AND FREEING FUNCTIONS********************/
-/****************************************************************************/
 
 void csr_matrix_free(CSRMatrix_t *A) {
     assert(A!=NULL);
@@ -269,8 +269,8 @@ int binarySearch(cell_t *array, int size, int target, int *ist) {
     int right = size - 1;
     while (left <= right && array != NULL) {
         int mid = (right + left) / 2;
-        if (array[mid].col == target) {
-            if (ist) *ist = mid;
+        if (array[mid].col == target) {  
+            if (ist) *ist = mid;  // exact match found
             return mid;
         }
         else if (array[mid].col < target) {
@@ -280,7 +280,9 @@ int binarySearch(cell_t *array, int size, int target, int *ist) {
             right = mid - 1;
         }
     }
-    if (ist) *ist = left;
+    if (ist) {
+        *ist = left; // point of insertion
+    }
     return NOTFOUND;
 }
 
@@ -312,7 +314,7 @@ int getOrInsert(CSRMatrix_t *A, int rowval, int colval, int *index) {
         *index = pos;
         return FALSE;
     }
-    // We did not find the cell but insert index, so we insert.
+    // We did not find the cell but the insert index, so we insert.
     insert(arrInfo, insertPos, rowval, colval);
     *index = insertPos;
     return TRUE;
@@ -466,12 +468,11 @@ void swap_cell(CSRMatrix_t *A, changeInfo_t *info) {
         && A->rptr[info->r2] == NULL) return;
         
     // Get the cell with the target column, insert if not found
-    // It can be that we are swapping cell with 0 value,
     int i1 = NOTFOUND, i2 = NOTFOUND;
     getOrInsert(A, info->r1, info->c1, &i1);
     int inserted = getOrInsert(A, info->r2, info->c2, &i2);
 
-    // If we inserted a new cell into row1=row2, and i1 > i2,
+    // If row1 == row2 and we inserted at i2 a new cell when i2 < i1
     if (inserted && i1 >= i2 && info->r1 == info->r2) i1++;
 
     row_t *arrInfo1 = A->rptr[info->r1];
@@ -498,7 +499,7 @@ void add_or_multi(CSRMatrix_t *A, changeInfo_t *info) {
         row_t *arrInfo = A->rptr[i];
 
         for (int j = 0; j < arrInfo->nElements; j++) {
-            int*curr = &arrInfo->row[j].val;
+            int *curr = &arrInfo->row[j].val;
             // We don't add if empty or if command is m.
             if (info->add && *curr != EMPTY) {
                 *curr += info->val;
@@ -607,7 +608,8 @@ void commandReader(CSRMatrix_t *A, CSRMatrix_t *B, int stage,
         //Decide Whether it is addition or multiplication
         // for add_or_multi function    
         info.add = (command == 'a') ? TRUE : FALSE;
-        
+
+        // Get the change information
         scanPrintInstruction(changeForm, command, &info);
 
         func(A, &info);
@@ -671,10 +673,8 @@ int compareMatrix(CSRMatrix_t *A, CSRMatrix_t *B) {
     return TRUE;
 }
 
-// I could have done this per command, It will be more efficient.
-// But this is way more convienient and straight forward since
-// we don't really care about run-time efficiency that much
-// and Artem said 700~800 lines is too much already.
+// Bulk check since this is sparse matrix and it is easier 
+// to implement this way.
 void notMatrix_check(CSRMatrix_t *A) {
     A->nnz = 0;
     A->notMatrix = FALSE;
@@ -686,9 +686,11 @@ void notMatrix_check(CSRMatrix_t *A) {
         for (int j = 0; j < row->nElements; j++) {
             int val = row->row[j].val;
 
+            // Out of bound values
             if (val < EMPTY || val> MAXDIGIT) {
                 A->notMatrix = TRUE;
             }
+            // Count non-zero values
             if (val != EMPTY) {
                 A->nnz++;
             } else {
