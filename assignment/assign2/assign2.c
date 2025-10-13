@@ -164,12 +164,14 @@ int main(int argc, char *argv[]) {
     // Early termination check
     inputMatrix->ended = compareMatrix(inputMatrix, targetMatrix);
 
-    while (!inputMatrix->ended) {
+    while (!inputMatrix->ended && stage <= 2) {
         printf(SDELIM, stage); // print Stage header
         commandReader(inputMatrix, targetMatrix, stage++, &count, changes);
     }
     
-    theEnd(&count); 
+    if (inputMatrix->ended) {
+        theEnd(&count); 
+    }
     printf(THEEND); // print "THE END" message
 
     csr_matrix_free(inputMatrix); // free initial matrix
@@ -177,7 +179,6 @@ int main(int argc, char *argv[]) {
     free(changes);
     return EXIT_SUCCESS; // algorithms are fun!!!
 }
-
 
 /****************************************************************************/
 /************** MEMORY ALLOCATIONS AND FREEING FUNCTIONS********************/
@@ -256,11 +257,9 @@ void null_check(CSRMatrix_t *A, int index) {
     }
 }
 
-
 /****************************************************************************/
 /*************************SEARCHING AND INSERTIONS***************************/
 /****************************************************************************/
-
 
 // Searching for both exact match and insertion point 
 // *ist is the point of insertion, can be pass as NULL
@@ -325,8 +324,12 @@ int getOrInsert(CSRMatrix_t *A, int rowval, int colval, int *index) {
 /************************************************************************/
 
 void clearGarbageInput() {
-    int ch;
-    while ((ch = getchar()) != '\n' && ch != EOF);
+    int c;
+    while ((c = getchar()) != EOF && 
+           !((c >= '0' && c <= '9') || c == '-' || isalpha(c))) {
+        // Skip non-digit characters and non-minus characters
+    }
+    ungetc(c, stdin);
 }
 
 void get_matrix(CSRMatrix_t *A) {
@@ -388,10 +391,10 @@ void scanPrintInstruction(char *changeForm, char command, changeInfo_t *info) {
     }
 }
 
-
 /****************************************************************************/
 /************************** PRINTING FUNCTIONS ******************************/
 /****************************************************************************/
+
 void printRowForm(row_t *array, int end) {
     int start = 0;
 
@@ -450,11 +453,9 @@ void matrixStatus(CSRMatrix_t *A, char *type) {
     printMatrix(A);
 }
 
-
 /****************************************************************************/
 /************************** CHANGE FUNCTIONS ********************************/
 /****************************************************************************/
-
 
 void swap_int(int*a, int *b) {
     int temp = *a;
@@ -565,11 +566,9 @@ void copy_col(CSRMatrix_t*A, changeInfo_t *info) {
     }
 }
 
-
 /************************************************************************/
 /*******************MAIN SET OF FUNCTIONS FOR EACH STAGE*****************/
 /************************************************************************/
-
 
 void printInitialStat(CSRMatrix_t *A, CSRMatrix_t *B) {
     matrixStatus(A, INIT); // print initial matrix
