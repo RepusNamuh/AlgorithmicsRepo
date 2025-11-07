@@ -117,6 +117,7 @@ void printHeader(CSRMatrix_t *A, const char *label);
 void matrixStatus(CSRMatrix_t *A, char *type);
 
 // Change functions
+int inRange(CSRMatrix_t *A, int r, int c);
 void nonZeroCount(int prev, int curr, double *count);
 void set_cell(CSRMatrix_t *A, changeInfo_t *info);
 void swap_int(int *a, int *b);
@@ -130,7 +131,7 @@ change_t* linkCommandWithFunc();
 
 // Main set of functions for each stage
 void printInitialStat(CSRMatrix_t *A, CSRMatrix_t *B);
-int stageOneCommand(char command);
+int validCommand(char cmd, int stage);
 void commandReader(CSRMatrix_t *A,CSRMatrix_t *B, int stage, 
                                 int *count, change_t *changes);
 int compareMatrix(CSRMatrix_t *A, CSRMatrix_t *B);
@@ -139,7 +140,11 @@ void notMatrix_check(CSRMatrix_t *A);
 void theEnd(int *count);
 
 
+/* And to whoever mark this assignment, it would be great for some 
+suggestion for how I can improve this code, and a general guidelines
+for how to approach stage 3 would be much appreciated. */
 /* WHERE IT ALL HAPPENS ------------------------------------------------------*/
+
 int main(int argc, char *argv[]) {
     int stage=0, rows, cols, count = 0;
     printf(SDELIM, stage++); // print Stage 0 header
@@ -332,6 +337,12 @@ void clearGarbageInput() {
     ungetc(c, stdin);
 }
 
+// Read the matrix and insert into CSR format
+// This is quite inefficient, since I could just create
+// a full size row that allow quick access. And since
+// the main do a bulk check anyway, which will get rid of all 0 cells.
+// But obviously, this is space consuming, especially in the case where.
+// we only have an input of 1 cell for each row of 5Mx5M matrix.
 void get_matrix(CSRMatrix_t *A) {
     int val, row, col;
     row_t *arrInfo = NULL;
@@ -343,7 +354,9 @@ void get_matrix(CSRMatrix_t *A) {
         arrInfo = A->rptr[row];
 
         int index = NOTFOUND;
+        // Get the cell with target col, insert if not found
         getOrInsert(A, row, col, &index);
+        // Set values of cell at found/inserted index
         make_cell(&arrInfo->row[index], col, val);
     }
 }
@@ -457,6 +470,10 @@ void matrixStatus(CSRMatrix_t *A, char *type) {
 /************************** CHANGE FUNCTIONS ********************************/
 /****************************************************************************/
 
+int inRange(CSRMatrix_t *A, int r, int c) {
+    return (r >= 0 && r < A->rows && c >= 0 && c < A->cols);
+}
+
 void swap_int(int*a, int *b) {
     int temp = *a;
     *a = *b;
@@ -464,6 +481,8 @@ void swap_int(int*a, int *b) {
 }
 
 void swap_cell(CSRMatrix_t *A, changeInfo_t *info) {
+    assert(inRange(A, info->r1, info->c1) && inRange(A, info->r2, info->c2));
+
     // if both rows are NULL, nothing to swap
     if (A->rptr[info->r1] == NULL 
         && A->rptr[info->r2] == NULL) return;
@@ -484,6 +503,8 @@ void swap_cell(CSRMatrix_t *A, changeInfo_t *info) {
 }
 
 void set_cell(CSRMatrix_t *A, changeInfo_t *info) {
+    assert(inRange(A, info->r1, info->c1));
+
     if (info->val == 0 && A->rptr[info->r1] == NULL) return;
 
     int index = NOTFOUND;
@@ -513,12 +534,16 @@ void add_or_multi(CSRMatrix_t *A, changeInfo_t *info) {
 
 // Swap the row via pointer swapping
 void swap_row(CSRMatrix_t *A, changeInfo_t *info) {
+    assert(inRange(A, info->r1, EMPTY) && inRange(A, info->r2, EMPTY));
+
     row_t *temp = A->rptr[info->r1];
     A->rptr[info->r1] = A->rptr[info->r2];
     A->rptr[info->r2] = temp;
 }
 
 void copy_row(CSRMatrix_t *A, changeInfo_t *info) {
+    assert(inRange(A, info->r1, EMPTY) && inRange(A, info->r2, EMPTY));
+
     if (info->r1 == info->r2) return; // copying to itself, do nothing
     row_t *src = A->rptr[info->r1];
     row_t *target = A->rptr[info->r2];
@@ -530,6 +555,7 @@ void copy_row(CSRMatrix_t *A, changeInfo_t *info) {
     }
     // Create a new row_t with everything except values in row
     target = create_arrayInfo(src->nElements, src->row_size);
+
     // Copy everything from src to target
     memcpy(target->row, src->row, sizeof(cell_t) * src->nElements);
 
@@ -546,6 +572,8 @@ void swap_col(CSRMatrix_t *A, changeInfo_t *info) {
 }
 
 void copy_col(CSRMatrix_t*A, changeInfo_t *info) {
+    assert(inRange(A, EMPTY, info->c1) && inRange(A, EMPTY, info->c2));
+    
     // src and target is c1 and c2, swap them for set_cell manipulation
     swap_int(&info->c1, &info->c2);
 
@@ -579,24 +607,26 @@ void printInitialStat(CSRMatrix_t *A, CSRMatrix_t *B) {
 }
 
 // Check if the command is valid for stage 1
-int stageOneCommand(char cmd) {
-    return (cmd == 's' || cmd == 'S' || cmd == 'm' || cmd == 'a');
+int validCommand(char cmd, int stage) {
+    if (stage == 1) {
+        return (cmd == 's' || cmd == 'S' || cmd == 'm' || cmd == 'a');
+    }
+    else if (cmd != 's' && cmd != 'S' && cmd != 'm' && cmd != 'a'
+             && cmd != 'R' && cmd != 'C' && cmd != 'r' && cmd != 'c') {
+        exit(EXIT_FAILURE); // invalid command
+    }
+    return TRUE;
 }
 
 // A function that perform both stage 1 and 2.
-//Read the command. IF we are still in STAGE1 and 
-//command is of STAGE2, break the current reading.
-//Scanf the changeform base on the command.
-//Call the function pointer to perform the change.
-// Print out the matrix after manipulation.
 void commandReader(CSRMatrix_t *A, CSRMatrix_t *B, int stage, 
                                 int *count, change_t *changes) {
     char command;
     changeInfo_t info;
 
     while (scanf("%c", &command) == 1) {
-
-        if (stage == 1 && !stageOneCommand(command)) {
+        // We are in stage 1 and the command is already in stage 2
+        if (!validCommand(command, stage)) {
             ungetc(command, stdin);
             break;
         }
@@ -615,6 +645,7 @@ void commandReader(CSRMatrix_t *A, CSRMatrix_t *B, int stage,
         // Bulk check of out of bound value in Matrix
         notMatrix_check(A);
 
+        // Print the current matrix status
         matrixStatus(A, CURR);
         matrixStatus(B, TARGET);
         (*count)++;
