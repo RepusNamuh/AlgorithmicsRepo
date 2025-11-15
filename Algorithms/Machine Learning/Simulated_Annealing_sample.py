@@ -42,7 +42,7 @@ def Simulated_Annealing(A: List, d: int, error:float, step_size: float):
                 X = X_new
             elif diff1 > diff2 and prob > rand_prob:
                 X = X_new
-        smallest_diff = min(smallest_diff, abs_diff)
+            smallest_diff = min(smallest_diff, abs_diff)
         T = T * 0.99
 
     return X, smallest_diff
