@@ -56,8 +56,8 @@ main(int argc, char **argv) {
 
 void partition(char *string, int suffixArray[], int start, int end, int *i, int *j, int depth) {
 	int mid = start + (end - start) / 2;
-	swap(&suffixArray[start], &suffixArray[mid]); // Move pivot to start
 	char pivot = string[suffixArray[mid] + depth]; 
+	swap(&suffixArray[start], &suffixArray[mid]); // Move pivot to start
 
 	*i = start;
 	*j = end;
