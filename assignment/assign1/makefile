@@ -1,0 +1,1 @@
+include /home/repusnamuh/project/AlgorithmicsRepo/makefile_template

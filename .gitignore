@@ -1,3 +1,4 @@
+bin
 *.txt
 venv
 env
@@ -11,3 +12,9 @@ learning_1.py
 *.html
 Ignore_Folder
 *.vs
+*.exe
+*.log
+*.Identifier
+build
+cities.csv
+program.c
