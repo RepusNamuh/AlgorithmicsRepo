@@ -16,7 +16,8 @@ $(BUILD_DIR):
 $(BUILD_DIR)/%: %.c | $(BUILD_DIR)
 	@$(CC) $(CFLAGS)  $< -o $@
 
-# Allow `make program` to build build/program
+# Make <program> will be compile and placed in the "build" directory
+# The code below turn terminal command "make <program>" into "make build/<program>"
 %:
 	@$(MAKE) $(MAKEFLAGS) $(BUILD_DIR)/$@
 
