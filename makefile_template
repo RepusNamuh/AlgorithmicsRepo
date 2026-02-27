@@ -1,26 +1,42 @@
 # Define directories
-BUILD_DIR := build
+BUILD_DIR := .build/
+DEBUG_DIR := .debug/
 
 # Compiler and flags (adjust as needed)
 CC := gcc
 CFLAGS := -Wall -Wextra -Werror -Wno-newline-eof -Wno-unused-parameter -pedantic -std=c2x
+LMFLAGS := -lm
 MAKEFLAGS := --no-print-directory
+DEBUG_FLAGS := -g
 .PHONY: all clean run
 
 # The default target
-
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
 
+$(DEBUG_DIR):
+	@mkdir -p $(DEBUG_DIR)
+
 # Rule to compile a single program into the build directory
-$(BUILD_DIR)/%: %.c | $(BUILD_DIR)
-	@$(CC) $(CFLAGS)  $< -o $@
+$(BUILD_DIR)%: %.c | $(BUILD_DIR)
+	@$(CC) $(CFLAGS)  $< -o $@ $(LMFLAGS)
+
+# Rule to compile a single program into the debug directory
+$(DEBUG_DIR)%_debug: %.c | $(DEBUG_DIR)
+	@$(CC) $(DEBUG_FLAGS) $(CFLAGS) $< -o $@ $(LMFLAGS)
 
 # Make <program> will be compile and placed in the "build" directory
 # The code below turn terminal command "make <program>" into "make build/<program>"
+
 %:
-	@$(MAKE) $(MAKEFLAGS) $(BUILD_DIR)/$@
+	@if [ "$(patsubst %_debug,%,$@)" = "$@" ]; then \
+		$(MAKE) $(MAKEFLAGS) $(BUILD_DIR)$@; \
+	else \
+		$(MAKE) $(MAKEFLAGS) $(DEBUG_DIR)$@; \
+	fi
 
 # Rule to clean up the build directory
 clean:
 	@find $(BUILD_DIR) -type f -exec rm -f {} +
+	@find $(DEBUG_DIR) -type f -exec rm -f {} +
+	@echo "Cleaned up build and debug directories in current directory."
